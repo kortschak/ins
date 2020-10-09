@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/biogo/biogo/alphabet"
@@ -204,9 +205,19 @@ func reportBlast(results []*xmlblast.Output, g blastRecordGroup) []blast.Record 
 				if i >= 0 {
 					id = id[:i]
 				}
-				id = strings.TrimSuffix(id, fmt.Sprintf("_%d_%d", g.left, g.right))
+				desc := strings.Fields(hit.Def[i+1:])
+				left, err := strconv.Atoi(desc[0])
+				if err != nil {
+					panic("invalid left range:" + hit.Def)
+				}
+				right, err := strconv.Atoi(desc[1])
+				if err != nil {
+					panic("invalid right range:" + hit.Def)
+				}
+
+				id = strings.TrimSuffix(id, fmt.Sprintf("_%d_%d", left, right))
 				if id != g.SubjectAccVer {
-					panic("unexpected name: " + id)
+					panic(fmt.Sprintf("unexpected name: %s want: %s range:%d-%d", id, g.SubjectAccVer, left, right))
 				}
 
 				for _, hsp := range hit.Hsps {
@@ -215,8 +226,8 @@ func reportBlast(results []*xmlblast.Output, g blastRecordGroup) []blast.Record 
 					hsp.HitFrom--
 
 					// Remap coordinates onto original subject.
-					hsp.HitFrom += g.left
-					hsp.HitTo += g.left
+					hsp.HitFrom += left
+					hsp.HitTo += left
 
 					remapped = append(remapped, blast.Record{
 						QueryAccVer: g.QueryAccVer,

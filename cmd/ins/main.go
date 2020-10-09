@@ -165,7 +165,7 @@ func main() {
 			log.Fatal(err)
 		}
 		s := linear.NewSeq(fmt.Sprintf("%s_%d_%d", g.SubjectAccVer, g.left, g.right), alphabet.BytesToLetters(b), alphabet.DNAredundant)
-		s.Desc = fmt.Sprintf("%s %+d", g.QueryAccVer, g.strand) // This is included for debugging diagnotics.
+		s.Desc = fmt.Sprintf("%d %d %s %+d", g.left, g.right, g.QueryAccVer, g.strand)
 		fmt.Fprintf(&buf, "%60a\n", s)
 
 		if i == len(groups)-1 || g.QueryAccVer != groups[i+1].QueryAccVer {
