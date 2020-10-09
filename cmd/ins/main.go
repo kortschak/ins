@@ -205,6 +205,9 @@ func main() {
 		}
 		enc := gff.NewWriter(os.Stdout, 60, true)
 		for _, r := range remappedHits {
+			if r.Strand < 0 {
+				r.SubjectStart, r.SubjectEnd = r.SubjectEnd, r.SubjectStart
+			}
 			repeat := details[r.QueryAccVer]
 			_, err = enc.Write(&gff.Feature{
 				SeqName:    r.SubjectAccVer,
