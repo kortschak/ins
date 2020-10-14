@@ -250,7 +250,10 @@ func main() {
 func cullContained(hits []blast.Record) []blast.Record {
 	var tree interval.IntTree
 	for i, r := range hits {
-		tree.Insert(subjectInterval{uid: uintptr(i), Record: r}, true)
+		err := tree.Insert(subjectInterval{uid: uintptr(i), Record: r}, true)
+		if err != nil {
+			panic(fmt.Sprint(err))
+		}
 	}
 	tree.AdjustRanges()
 	var culled []blast.Record
