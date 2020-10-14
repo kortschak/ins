@@ -19,12 +19,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 
 	"github.com/biogo/biogo/alphabet"
 	"github.com/biogo/biogo/io/featio/gff"
 	"github.com/biogo/biogo/seq"
 	"github.com/biogo/biogo/seq/linear"
 	"github.com/biogo/hts/fai"
+	"github.com/biogo/store/interval"
 
 	"github.com/kortschak/ins/blast"
 )
@@ -64,6 +66,7 @@ func main() {
 	flag.Var(&libs, "lib", "specify the search libraries (required - may be present more than once)")
 	mode := flag.String("mode", "normal", "specify search mode")
 	jsonOut := flag.Bool("json", false, "specify json format for feature output")
+	cull := flag.Bool("cull", true, "specify to remove lower scoring features completely contained by higher scoring features")
 	verbose := flag.Bool("verbose", false, "specify verbose logging")
 	pool := flag.Bool("pool", true, "specify to pool all libraries into a single search")
 	threads := flag.Int("cores", 0, "specify the maximum number of cores for blast searches (<=0 is use all cores)")
@@ -190,6 +193,12 @@ func main() {
 		}
 	}
 
+	if *cull {
+		remappedHits = cullContained(remappedHits)
+	}
+
+	sort.Sort(bySubjectPosition(remappedHits))
+
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		for _, r := range remappedHits {
@@ -235,6 +244,55 @@ func main() {
 	}
 	log.Printf("masked sequence in %s", masked)
 }
+
+// cullContained returns a copy of hits with all hits that are completely contained by
+// a higher scoring hit removed.
+func cullContained(hits []blast.Record) []blast.Record {
+	var tree interval.IntTree
+	for i, r := range hits {
+		tree.Insert(subjectInterval{uid: uintptr(i), Record: r}, true)
+	}
+	tree.AdjustRanges()
+	var culled []blast.Record
+outer:
+	for _, r := range hits {
+		o := tree.Get(subjectInterval{Record: r})
+		for _, h := range o {
+			if h.(subjectInterval).BitScore > r.BitScore {
+				continue outer
+			}
+		}
+		culled = append(culled, r)
+	}
+	return culled
+}
+
+type subjectInterval struct {
+	uid uintptr
+	blast.Record
+}
+
+// Overlap returns whether the b interval completely contains i.
+func (i subjectInterval) Overlap(b interval.IntRange) bool {
+	left := min(i.SubjectStart, i.SubjectEnd)
+	right := max(i.SubjectStart, i.SubjectEnd)
+	return b.Start <= left && right <= b.End
+}
+func (i subjectInterval) ID() uintptr { return i.uid }
+func (i subjectInterval) Range() interval.IntRange {
+	return interval.IntRange{Start: min(i.SubjectStart, i.SubjectEnd), End: max(i.SubjectStart, i.SubjectEnd)}
+}
+
+type bySubjectPosition []blast.Record
+
+func (r bySubjectPosition) Len() int { return len(r) }
+func (r bySubjectPosition) Less(i, j int) bool {
+	if r[i].SubjectAccVer < r[j].SubjectAccVer {
+		return true
+	}
+	return r[i].SubjectAccVer == r[j].SubjectAccVer && min(r[i].SubjectStart, r[i].SubjectEnd) < min(r[j].SubjectStart, r[j].SubjectEnd)
+}
+func (r bySubjectPosition) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
 
 // sliceValue is a multi-value flag value.
 type sliceValue []string

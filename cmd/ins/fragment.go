@@ -22,8 +22,8 @@ import (
 // of the sequence relative to the original in the first three space separated fields
 // of the fasta description and returns a map containing a look-up table from the
 // generated sequences to the parent and coordinates.
-func split(dst io.Writer, src io.Reader, goal, max int) (map[string]interval, error) {
-	frags := make(map[string]interval)
+func split(dst io.Writer, src io.Reader, goal, max int) (map[string]fragment, error) {
+	frags := make(map[string]fragment)
 	sc := seqio.NewScanner(fasta.NewReader(src, linear.NewSeq("", nil, alphabet.DNA)))
 	i := 1
 	for sc.Next() {
@@ -40,7 +40,7 @@ func split(dst io.Writer, src io.Reader, goal, max int) (map[string]interval, er
 			if _, ok := frags[tmp.ID]; ok {
 				return nil, fmt.Errorf("non-unique sequence id in input: %q", id)
 			}
-			frags[tmp.ID] = interval{parent: id, start: pos, end: pos + n}
+			frags[tmp.ID] = fragment{parent: id, start: pos, end: pos + n}
 			fmt.Fprintf(dst, "%60a\n", &tmp)
 			seq.Seq = seq.Seq[n:]
 			pos += n
@@ -51,7 +51,7 @@ func split(dst io.Writer, src io.Reader, goal, max int) (map[string]interval, er
 		if _, ok := frags[seq.ID]; ok {
 			return nil, fmt.Errorf("non-unique sequence id in input: %q", id)
 		}
-		frags[seq.ID] = interval{parent: id, start: pos, end: pos + seq.Len()}
+		frags[seq.ID] = fragment{parent: id, start: pos, end: pos + seq.Len()}
 		fmt.Fprintf(dst, "%60a\n", seq)
 	}
 	if err := sc.Error(); err != nil {
@@ -63,7 +63,7 @@ func split(dst io.Writer, src io.Reader, goal, max int) (map[string]interval, er
 // remapCoords adjusts hits so that subjects (genome sequence) are mapped against
 // the original un-fragmented genome sequence consumed by split. It then sorts
 // hits by strand, repeat type, position and BLAST bitscore.
-func remapCoords(hits []blast.Record, frags map[string]interval) {
+func remapCoords(hits []blast.Record, frags map[string]fragment) {
 	for i, r := range hits {
 		iv := frags[r.SubjectAccVer]
 		r.SubjectAccVer = iv.parent
@@ -73,6 +73,11 @@ func remapCoords(hits []blast.Record, frags map[string]interval) {
 	}
 
 	sort.Sort(bySubjectLeft(hits))
+}
+
+type fragment struct {
+	parent     string
+	start, end int
 }
 
 // merge takes a sorted set of hits and groups them into individual groups based

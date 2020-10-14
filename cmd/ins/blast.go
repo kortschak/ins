@@ -459,8 +459,3 @@ func uniq(s []string) []string {
 	}
 	return s[:i+1]
 }
-
-type interval struct {
-	parent     string
-	start, end int
-}

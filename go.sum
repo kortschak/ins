@@ -12,6 +12,7 @@ github.com/biogo/hts v1.2.1 h1:KDvlWtJjmGid/0o2uN9MDhftyMYN9uCOPYlApPI3w8M=
 github.com/biogo/hts v1.2.1/go.mod h1:6C9MdMt9ALD5PsluK5n0B0svHOpmVse3UjQQx/cTgOw=
 github.com/biogo/ncbi v1.0.2 h1:Xh1ADxkgv6AGfCW1fhCXP1J1useuUqIvEVb3waf3wKs=
 github.com/biogo/ncbi v1.0.2/go.mod h1:tLPN+m+oaNgexi9bfkGciZ1knOHmGWQWeNhQm4RIFnI=
+github.com/biogo/store v0.0.0-20200104231603-2c6ad937eb83 h1:wQjRDdhQmyjOlYPJGS/FHKMA13hgT4anRXIWjHX84zU=
 github.com/biogo/store v0.0.0-20200104231603-2c6ad937eb83/go.mod h1:wdbXg77soR6ESRprAMEwAQDFtLT6EAGF5o1GRy0cB5k=
 github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/go-gl/gl v0.0.0-20180407155706-68e253793080/go.mod h1:482civXOzJJCPzJ4ZOX/pwvXBWSnzD4OKMdH4ClKGbk=
