@@ -66,11 +66,21 @@ func main() {
 	flag.Var(&libs, "lib", "specify the search libraries (required - may be present more than once)")
 	mode := flag.String("mode", "normal", "specify search mode")
 	jsonOut := flag.Bool("json", false, "specify json format for feature output")
-	cull := flag.Bool("cull", true, "specify to remove lower scoring features completely contained by higher scoring features")
+	cull := flag.Bool("cull", true, "specify to discard lower scoring nested features")
 	verbose := flag.Bool("verbose", false, "specify verbose logging")
 	pool := flag.Bool("pool", true, "specify to pool all libraries into a single search")
 	threads := flag.Int("cores", 0, "specify the maximum number of cores for blast searches (<=0 is use all cores)")
 	work := flag.Bool("work", false, "specify to keep temporary files")
+
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), `Usage of %[1]s:
+  $ %[1]s [options] -lib <library.fa> [-lib <library.fa> ...] -query <seq.fa> >out.gtf 2>out.log
+
+Options:
+`, os.Args[0])
+		flag.PrintDefaults()
+	}
+
 	flag.Parse()
 
 	if *in == "" || len(libs) == 0 {
