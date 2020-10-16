@@ -23,3 +23,34 @@ or
 ```
 $ ins [options] -json -lib <library.fa> [-lib <library.fa> ...] -query <seq.fa> >out.json 2>out.log
 ```
+
+For expert users, additional or alternative flags may be passed to `makeblastdb` and `blastn` using the `-mflags` and `-bflags` options. Users of `-mflags` and `-bflags` must not re-set flags that have already been set by `ins`; these will always include
+
+- `makeblastdb`
+	- `-in`
+	- `-out`
+	- `-dbtype`
+- `blastn`
+	- `-db`
+	- `-query`
+	- `-outfmt`
+
+A variety of other flags are set when running `blastn`
+
+- `-evalue`
+- `-word_size`
+- `-dust`
+- `-soft_masking`
+- `-reward`
+- `-penalty`
+- `-xdrop_ungap`
+- `-xdrop_gap`
+- `-xdrop_gap_final`
+- `-gapopen`
+- `-gapextend`
+- `-num_alignments`
+- `-searchsp`
+- `-parse_deflines`
+- `-num_threads`
+
+If a user intends to re-set these an empty configuration mode must be selected by using `-mode=user` in addition to the `-bflags` option. The requirement may be relaxed in future. When using the user mode, all necessary flags must be provided via the `-bflags` option.

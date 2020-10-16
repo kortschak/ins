@@ -14,6 +14,7 @@ import (
 	"io"
 	"os/exec"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/biogo/external"
@@ -38,6 +39,9 @@ type MakeDB struct {
 	TaxID       int    `buildarg:"{{with .}}-taxid{{split}}{{.}}{{end}}"`              // -taxid <n>
 	TaxIDMap    string `buildarg:"{{with .}}-taxid_map{{split}}{{.}}{{end}}"`          // -taxid_map <s>
 	LogFile     string `buildarg:"{{with .}}-logfile{{split}}{{.}}{{end}}"`            // -logfile <s>
+
+	// ExtraFlags will be passed through to makeblastdb as flags.
+	ExtraFlags string
 }
 
 func (m MakeDB) BuildCommand() (*exec.Cmd, error) {
@@ -47,8 +51,12 @@ func (m MakeDB) BuildCommand() (*exec.Cmd, error) {
 	if m.Out == "" {
 		return nil, errors.New("makeblastdb: missing out filename")
 	}
+	var extra []string
+	if m.ExtraFlags != "" {
+		extra = strings.Split(m.ExtraFlags, " ")
+	}
 	cl := external.Must(external.Build(m))
-	return exec.Command(cl[0], cl[1:]...), nil
+	return exec.Command(cl[0], append(cl[1:], extra...)...), nil
 }
 
 type Nucleic struct {
@@ -84,11 +92,18 @@ type Nucleic struct {
 
 	// Performance:
 	Threads int `buildarg:"{{if .}}-num_threads{{split}}{{.}}{{end}}"` // -num_threads <n>
+
+	// ExtraFlags will be passed through to blastn as flags.
+	ExtraFlags string
 }
 
 func (n Nucleic) BuildCommand() (*exec.Cmd, error) {
 	cl := external.Must(external.Build(n, template.FuncMap{"dust": dust}))
-	return exec.Command(cl[0], cl[1:]...), nil
+	var extra []string
+	if n.ExtraFlags != "" {
+		extra = strings.Split(n.ExtraFlags, " ")
+	}
+	return exec.Command(cl[0], append(cl[1:], extra...)...), nil
 }
 
 // Dust options.

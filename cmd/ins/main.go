@@ -37,6 +37,7 @@ var (
 		"sensitive": {NumAlignments: 1e7, SearchSpace: 1e6, EValue: 3e-5, Threads: runtime.NumCPU(), Reward: 3, Penalty: -4, GapOpen: 30, GapExtend: 6, XdropUngap: 80, XdropGap: 130, XdropGapFinal: 150, WordSize: 9, ParseDeflines: true, OutFormat: tabFmt},
 		"normal":    {NumAlignments: 1e7, SearchSpace: 1e6, EValue: 2e-5, Threads: runtime.NumCPU(), Reward: 3, Penalty: -4, GapOpen: 30, GapExtend: 6, XdropUngap: 80, XdropGap: 130, XdropGapFinal: 150, WordSize: 10, ParseDeflines: true, OutFormat: tabFmt},
 		"rough":     {NumAlignments: 1e7, SearchSpace: 1e6, EValue: 1e-5, Threads: runtime.NumCPU(), Reward: 3, Penalty: -4, GapOpen: 30, GapExtend: 6, XdropUngap: 80, XdropGap: 130, XdropGapFinal: 150, WordSize: 11, ParseDeflines: true, OutFormat: tabFmt},
+		"user":      {},
 	}
 
 	// realign is the reciprocal hit pass BLAST parameters.
@@ -71,6 +72,8 @@ func main() {
 	pool := flag.Bool("pool", true, "specify to pool all libraries into a single search")
 	threads := flag.Int("cores", 0, "specify the maximum number of cores for blast searches (<=0 is use all cores)")
 	work := flag.Bool("work", false, "specify to keep temporary files")
+	bflags := flag.String("bflags", "", "specify additional or alternative blastn flags")
+	mflags := flag.String("mflags", "", "specify additional or alternative makeblastdb flags")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), `Usage of %[1]s:
@@ -157,7 +160,7 @@ Options:
 	} else {
 		libraries = filenames(libs)
 	}
-	hits, err := runBlastTabular(search, frags, libraries, logger)
+	hits, err := runBlastTabular(search, frags, libraries, *mflags, *bflags, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,7 +195,11 @@ Options:
 				libraries = filenames(libs)
 			}
 
-			hits, err := runBlastXML(realign, g, &buf, libraries, tmpDir, logger)
+			search := realign
+			if *mode == "user" {
+				search = blastnModes[*mode]
+			}
+			hits, err := runBlastXML(search, g, &buf, libraries, tmpDir, *mflags, *bflags, logger)
 			if err != nil {
 				log.Fatal(err)
 			}

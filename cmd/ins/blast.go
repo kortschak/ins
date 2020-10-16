@@ -33,9 +33,10 @@ const (
 
 // runBlastTabular runs a BLAST search of the sequences in libs against a database
 // constructed from the sequences in query with details from g. The BLAST parameters
-// are provided by search. If logger is not nil, output from the blast executable is
-// written to it.
-func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, logger io.Writer) ([]blast.Record, error) {
+// are provided by search. The strings mflags and bflags are passed to makeblastdb
+// and blastn as flags without interpretation or checking. If logger is not nil,
+// output from the blast executable is written to it.
+func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mflags, bflags string, logger io.Writer) ([]blast.Record, error) {
 	search.OutFormat = tabFmt
 
 	var hits []blast.Record
@@ -46,7 +47,7 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, logge
 				return nil, err
 			}
 
-			mkdb, err := blast.MakeDB{DBType: "nucl", In: working, Out: working}.BuildCommand()
+			mkdb, err := blast.MakeDB{DBType: "nucl", In: working, Out: working, ExtraFlags: mflags}.BuildCommand()
 			if err != nil {
 				return nil, err
 			}
@@ -60,6 +61,7 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, logge
 
 			search.Database = working
 			search.Query = lib.name()
+			search.ExtraFlags = bflags
 			blastn, err := search.BuildCommand()
 			if err != nil {
 				return nil, err
@@ -104,13 +106,14 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, logge
 
 // runBlastXML runs a BLAST search of the sequences in libs against a database
 // constructed from the sequences in query with details from g. The BLAST parameters
-// are provided by search. Work is done in workdir and if logger is not nil, output
-// from the blast executable is written to it.
-func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs []library, workdir string, logger io.Writer) ([]*xmlblast.Output, error) {
+// are provided by search. The strings mflags and bflags are passed to makeblastdb
+// and blastn as flags without interpretation or checking. Work is done in workdir
+// and if logger is not nil, output from the blast executable is written to it.
+func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*xmlblast.Output, error) {
 	search.OutFormat = xmlFmt
 
 	working := filepath.Join(workdir, g.QueryAccVer+"-working")
-	mkdb, err := blast.MakeDB{DBType: "nucl", In: "-", Title: g.QueryAccVer, Out: working}.BuildCommand()
+	mkdb, err := blast.MakeDB{DBType: "nucl", In: "-", Title: g.QueryAccVer, Out: working, ExtraFlags: mflags}.BuildCommand()
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +130,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 	for _, lib := range libs {
 		search.Database = working
 		search.Query = lib.name()
+		search.ExtraFlags = bflags
 		blastn, err := search.BuildCommand()
 		if err != nil {
 			return nil, err
