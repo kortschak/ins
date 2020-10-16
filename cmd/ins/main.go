@@ -42,10 +42,6 @@ var (
 
 	// realign is the reciprocal hit pass BLAST parameters.
 	realign = blast.Nucleic{NumAlignments: 1e7, SearchSpace: 1e6, EValue: 1e-5, Threads: runtime.NumCPU(), Reward: 3, Penalty: -4, GapOpen: 30, GapExtend: 6, XdropUngap: 80, XdropGap: 150, XdropGapFinal: 150, WordSize: 11, ParseDeflines: true, Dust: &blast.Dust{Filter: true}, SoftMask: true, OutFormat: xmlFmt}
-
-	// classify is the repeat classification BLAST parameters.
-	//nolint:deadcode,unused,varcheck
-	classify = blast.Nucleic{NumAlignments: 1e7, SearchSpace: 1e6, EValue: 1e-5, Threads: runtime.NumCPU(), Reward: 3, Penalty: -4, GapOpen: 30, GapExtend: 6, XdropUngap: 80, XdropGap: 150, XdropGapFinal: 150, WordSize: 11, ParseDeflines: true, Dust: &blast.Dust{Filter: true}, SoftMask: true, OutFormat: tabFmt}
 )
 
 const (
