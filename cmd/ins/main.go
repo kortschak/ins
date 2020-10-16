@@ -207,6 +207,7 @@ Options:
 	}
 
 	if *cull {
+		log.Println("discarding low scoring nested features")
 		remappedHits = cullContained(remappedHits)
 	}
 
