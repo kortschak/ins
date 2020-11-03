@@ -200,7 +200,7 @@ Options:
 				log.Fatal(err)
 			}
 
-			remappedHits = append(remappedHits, reportBlast(hits, g)...)
+			remappedHits = append(remappedHits, reportBlast(hits, g, *verbose)...)
 
 			buf.Reset()
 		}

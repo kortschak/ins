@@ -199,7 +199,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 
 // reportBlast converts BLAST results into blast.Records based on the
 // coordinates of a genome region g.
-func reportBlast(results []*xmlblast.Output, g blastRecordGroup) []blast.Record {
+func reportBlast(results []*xmlblast.Output, g blastRecordGroup, verbose bool) []blast.Record {
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {
@@ -221,7 +221,21 @@ func reportBlast(results []*xmlblast.Output, g blastRecordGroup) []blast.Record 
 
 				id = strings.TrimSuffix(id, fmt.Sprintf("_%d_%d", left, right))
 				if id != g.SubjectAccVer {
-					panic(fmt.Sprintf("unexpected name: %s want: %s range:%d-%d", id, g.SubjectAccVer, left, right))
+					log.Printf("dropping remainder of iteration hits: unexpected name: %q want: %q range:%d-%d", id, g.SubjectAccVer, left, right)
+					for i, hsp := range hit.Hsps {
+						log.Printf("\t%q:%d-%d %q:%d-%d",
+							hit.Def, hsp.HitFrom, hsp.HitTo,
+							*it.QueryDef, hsp.QueryFrom, hsp.QueryTo,
+						)
+						if !verbose {
+							n := len(hit.Hsps[i:])
+							if n > 2 {
+								log.Printf("\tnot logging %d additional dropped hits", n-1)
+								break
+							}
+						}
+					}
+					break
 				}
 
 				for _, hsp := range hit.Hsps {
