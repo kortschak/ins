@@ -85,17 +85,18 @@ package blast
 
 // An Output holds the deserialised results of an Blast Get request.
 type Output struct {
-	Program        string      `xml:"BlastOutput_program"`              // BlastOutput_program
-	Version        string      `xml:"BlastOutput_version"`              // BlastOutput_version
-	Reference      string      `xml:"BlastOutput_reference"`            // BlastOutput_reference
-	Database       string      `xml:"BlastOutput_db"`                   // BlastOutput_db
-	QueryId        string      `xml:"BlastOutput_query-ID"`             // BlastOutput_query-ID
-	QueryDef       string      `xml:"BlastOutput_query-def"`            // BlastOutput_query-def
-	QueryLen       int         `xml:"BlastOutput_query-len"`            // BlastOutput_query-len
-	QuerSeq        *string     `xml:"BlastOutput_query-seq"`            // BlastOutput_query-seq?
-	Parameters     Parameters  `xml:"BlastOutput_param>Parameters"`     // BlastOutput_param
-	Iterations     []Iteration `xml:"BlastOutput_iterations>Iteration"` // BlastOutput_iterations
-	MegaStatistics *Statistics `xml:"BlastOutput_mbstat>Statistics"`    // BlastOutput_mbstat?
+	Iterations []Iteration `xml:"BlastOutput_iterations>Iteration"` // BlastOutput_iterations
+
+	// Program        string      `xml:"BlastOutput_program"`              // BlastOutput_program
+	// Version        string      `xml:"BlastOutput_version"`              // BlastOutput_version
+	// Reference      string      `xml:"BlastOutput_reference"`            // BlastOutput_reference
+	// Database       string      `xml:"BlastOutput_db"`                   // BlastOutput_db
+	// QueryId        string      `xml:"BlastOutput_query-ID"`             // BlastOutput_query-ID
+	// QueryDef       string      `xml:"BlastOutput_query-def"`            // BlastOutput_query-def
+	// QueryLen       int         `xml:"BlastOutput_query-len"`            // BlastOutput_query-len
+	// QuerSeq        *string     `xml:"BlastOutput_query-seq"`            // BlastOutput_query-seq?
+	// Parameters     Parameters  `xml:"BlastOutput_param>Parameters"`     // BlastOutput_param
+	// MegaStatistics *Statistics `xml:"BlastOutput_mbstat>Statistics"`    // BlastOutput_mbstat?
 }
 
 /*
@@ -132,13 +133,14 @@ type Output struct {
 
 // An Iteration holds the iteration data for a Blast result.
 type Iteration struct {
-	N          int         `xml:"Iteration_iter-num"`        // Iteration_iter-num
-	QueryId    *string     `xml:"Iteration_query-ID"`        // Iteration_query-ID?
-	QueryDef   *string     `xml:"Iteration_query-def"`       // Iteration_query-def?
-	QueryLen   *int        `xml:"Iteration_query-len"`       // Iteration_query-len?
-	Hits       []Hit       `xml:"Iteration_hits>Hit"`        // Iteration_hits?
-	Statistics *Statistics `xml:"Iteration_stat>Statistics"` // Iteration_stat?
-	Message    *string     `xml:"Iteration_message"`         // Iteration_message?
+	N        int     `xml:"Iteration_iter-num"`  // Iteration_iter-num
+	QueryId  *string `xml:"Iteration_query-ID"`  // Iteration_query-ID?
+	QueryDef *string `xml:"Iteration_query-def"` // Iteration_query-def?
+	Hits     []Hit   `xml:"Iteration_hits>Hit"`  // Iteration_hits?
+
+	// QueryLen   *int        `xml:"Iteration_query-len"`       // Iteration_query-len?
+	// Statistics *Statistics `xml:"Iteration_stat>Statistics"` // Iteration_stat?
+	// Message    *string     `xml:"Iteration_message"`         // Iteration_message?
 }
 
 /*
@@ -187,16 +189,16 @@ type Iteration struct {
 
 // A Parameters holds the parameter information for a Blast result.
 type Parameters struct {
-	MatrixName  *string  `xml:"Parameters_matrix"`       // Parameters_matrix?
-	Expect      float64  `xml:"Parameters_expect"`       // Parameters_expect
-	Include     *float64 `xml:"Parameters_include"`      // Parameters_include?
-	Match       *int     `xml:"Parameters_sc-match"`     // Parameters_sc-match?
-	Mismatch    *int     `xml:"Parameters_sc-mismatch"`  // Parameters_sc-mismatch?
-	GapOpen     int      `xml:"Parameters_gap-open"`     // Parameters_gap-open
-	GapExtend   int      `xml:"Parameters_gap-extend"`   // Parameters_gap-extend
-	Filter      *string  `xml:"Parameters_filter"`       // Parameters_filter?
-	PhiPattern  *string  `xml:"Parameters_pattern"`      // Parameters_pattern?
-	EntrezQuery *string  `xml:"Parameters_entrez-query"` // Parameters_entrez-query?
+	// MatrixName  *string  `xml:"Parameters_matrix"`       // Parameters_matrix?
+	// Expect      float64  `xml:"Parameters_expect"`       // Parameters_expect
+	// Include     *float64 `xml:"Parameters_include"`      // Parameters_include?
+	// Match       *int     `xml:"Parameters_sc-match"`     // Parameters_sc-match?
+	// Mismatch    *int     `xml:"Parameters_sc-mismatch"`  // Parameters_sc-mismatch?
+	// GapOpen     int      `xml:"Parameters_gap-open"`     // Parameters_gap-open
+	// GapExtend   int      `xml:"Parameters_gap-extend"`   // Parameters_gap-extend
+	// Filter      *string  `xml:"Parameters_filter"`       // Parameters_filter?
+	// PhiPattern  *string  `xml:"Parameters_pattern"`      // Parameters_pattern?
+	// EntrezQuery *string  `xml:"Parameters_entrez-query"` // Parameters_entrez-query?
 }
 
 /*
@@ -233,13 +235,13 @@ type Parameters struct {
 
 // A Statistics holds the search and database statistics for a Blast result.
 type Statistics struct {
-	DbNum    int     `xml:"Statistics_db-num"`    // Statistics_db-num
-	DbLen    int64   `xml:"Statistics_db-len"`    // Statistics_db-len
-	HspLen   int     `xml:"Statistics_hsp-len"`   // Statistics_hsp-len
-	EffSpace float64 `xml:"Statistics_eff-space"` // Statistics_eff-space
-	Kappa    float64 `xml:"Statistics_kappa"`     // Statistics_kappa
-	Lambda   float64 `xml:"Statistics_lambda"`    // Statistics_lambda
-	Entropy  float64 `xml:"Statistics_entropy"`   // Statistics_entropy
+	// DbNum    int     `xml:"Statistics_db-num"`    // Statistics_db-num
+	// DbLen    int64   `xml:"Statistics_db-len"`    // Statistics_db-len
+	// HspLen   int     `xml:"Statistics_hsp-len"`   // Statistics_hsp-len
+	// EffSpace float64 `xml:"Statistics_eff-space"` // Statistics_eff-space
+	// Kappa    float64 `xml:"Statistics_kappa"`     // Statistics_kappa
+	// Lambda   float64 `xml:"Statistics_lambda"`    // Statistics_lambda
+	// Entropy  float64 `xml:"Statistics_entropy"`   // Statistics_entropy
 }
 
 /*
@@ -272,12 +274,13 @@ type Statistics struct {
 
 // A Hit holds the details of an individual Blast hit.
 type Hit struct {
-	N         int    `xml:"Hit_num"`       // Hit_num
-	Id        string `xml:"Hit_id"`        // Hit_id
-	Def       string `xml:"Hit_def"`       // Hit_def
-	Accession string `xml:"Hit_accession"` // Hit_accession
-	Len       int    `xml:"Hit_len"`       // Hit_len
-	Hsps      []Hsp  `xml:"Hit_hsps>Hsp"`  // Hit_hsps?
+	Def  string `xml:"Hit_def"`      // Hit_def
+	Hsps []Hsp  `xml:"Hit_hsps>Hsp"` // Hit_hsps?
+
+	// N         int    `xml:"Hit_num"`       // Hit_num
+	// Id        string `xml:"Hit_id"`        // Hit_id
+	// Accession string `xml:"Hit_accession"` // Hit_accession
+	// Len       int    `xml:"Hit_len"`       // Hit_len
 }
 
 /*
@@ -366,24 +369,25 @@ type Hit struct {
 
 // An Hsp holds the details of an individual Blast high scoring pair.
 type Hsp struct {
-	N              int     `xml:"Hsp_num"`          // Hsp_num
-	BitScore       float64 `xml:"Hsp_bit-score"`    // Hsp_bit-score
-	Score          float64 `xml:"Hsp_score"`        // Hsp_score
-	EValue         float64 `xml:"Hsp_evalue"`       // Hsp_evalue
-	QueryFrom      int     `xml:"Hsp_query-from"`   // Hsp_query-from
-	QueryTo        int     `xml:"Hsp_query-to"`     // Hsp_query-to
-	HitFrom        int     `xml:"Hsp_hit-from"`     // Hsp_hit-from
-	HitTo          int     `xml:"Hsp_hit-to"`       // Hsp_hit-to
-	PhiPatternFrom *int    `xml:"Hsp_pattern-from"` // Hsp_pattern-from?
-	PhiPatternTo   *int    `xml:"Hsp_pattern-to"`   // Hsp_pattern-to?
-	QueryFrame     *int    `xml:"Hsp_query-frame"`  // Hsp_query-frame?
-	HitFrame       *int    `xml:"Hsp_hit-frame"`    // Hsp_hit-frame?
-	HspIdentity    *int    `xml:"Hsp_identity"`     // Hsp_identity?
-	HspPositive    *int    `xml:"Hsp_positive"`     // Hsp_positive?
-	HspGaps        *int    `xml:"Hsp_gaps"`         // Hsp_gaps?
-	AlignLen       *int    `xml:"Hsp_align-len"`    // Hsp_align-len?
-	Density        *int    `xml:"Hsp_density"`      // Hsp_density?
-	QuerySeq       []byte  `xml:"Hsp_qseq"`         // Hsp_qseq
-	SubjectSeq     []byte  `xml:"Hsp_hseq"`         // Hsp_hseq
-	FormatMidline  []byte  `xml:"Hsp_midline"`      // Hsp_midline?
+	BitScore    float64 `xml:"Hsp_bit-score"`  // Hsp_bit-score
+	EValue      float64 `xml:"Hsp_evalue"`     // Hsp_evalue
+	QueryFrom   int     `xml:"Hsp_query-from"` // Hsp_query-from
+	QueryTo     int     `xml:"Hsp_query-to"`   // Hsp_query-to
+	HitFrom     int     `xml:"Hsp_hit-from"`   // Hsp_hit-from
+	HitTo       int     `xml:"Hsp_hit-to"`     // Hsp_hit-to
+	HspIdentity *int    `xml:"Hsp_identity"`   // Hsp_identity?
+	HspGaps     *int    `xml:"Hsp_gaps"`       // Hsp_gaps?
+	AlignLen    *int    `xml:"Hsp_align-len"`  // Hsp_align-len?
+
+	// N              int     `xml:"Hsp_num"`          // Hsp_num
+	// Score          float64 `xml:"Hsp_score"`        // Hsp_score
+	// PhiPatternFrom *int    `xml:"Hsp_pattern-from"` // Hsp_pattern-from?
+	// PhiPatternTo   *int    `xml:"Hsp_pattern-to"`   // Hsp_pattern-to?
+	// QueryFrame     *int    `xml:"Hsp_query-frame"`  // Hsp_query-frame?
+	// HitFrame       *int    `xml:"Hsp_hit-frame"`    // Hsp_hit-frame?
+	// HspPositive    *int    `xml:"Hsp_positive"`     // Hsp_positive?
+	// Density        *int    `xml:"Hsp_density"`      // Hsp_density?
+	// QuerySeq       []byte  `xml:"Hsp_qseq"`         // Hsp_qseq
+	// SubjectSeq     []byte  `xml:"Hsp_hseq"`         // Hsp_hseq
+	// FormatMidline  []byte  `xml:"Hsp_midline"`      // Hsp_midline?
 }
