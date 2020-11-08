@@ -200,8 +200,10 @@ Options:
 				log.Fatal(err)
 			}
 
-			remappedHits = append(remappedHits, reportBlast(hits, g, *verbose)...)
-
+			reported := reportBlast(hits, g, *verbose)
+			log.Printf("got %d reciprocal hits", len(reported))
+			remappedHits = append(remappedHits, reported...)
+			log.Printf("holding %d total remapped hits", len(remappedHits))
 			buf.Reset()
 		}
 	}
