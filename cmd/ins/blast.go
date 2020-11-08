@@ -21,7 +21,6 @@ import (
 	"github.com/biogo/biogo/io/seqio"
 	"github.com/biogo/biogo/io/seqio/fasta"
 	"github.com/biogo/biogo/seq/linear"
-	xmlblast "github.com/biogo/ncbi/blast"
 
 	"github.com/kortschak/ins/blast"
 )
@@ -109,7 +108,7 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mflag
 // are provided by search. The strings mflags and bflags are passed to makeblastdb
 // and blastn as flags without interpretation or checking. Work is done in workdir
 // and if logger is not nil, output from the blast executable is written to it.
-func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*xmlblast.Output, error) {
+func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*blast.Output, error) {
 	search.OutFormat = xmlFmt
 
 	working := filepath.Join(workdir, g.QueryAccVer+"-working")
@@ -126,7 +125,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 		return nil, err
 	}
 
-	var results []*xmlblast.Output
+	var results []*blast.Output
 	for _, lib := range libs {
 		search.Database = working
 		search.Query = lib.name()
@@ -149,7 +148,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 		}
 
 		dec := xml.NewDecoder(stdout)
-		var o xmlblast.Output
+		var o blast.Output
 		err = dec.Decode(&o)
 		if err != nil {
 			return nil, err
@@ -199,7 +198,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 
 // reportBlast converts BLAST results into blast.Records based on the
 // coordinates of a genome region g.
-func reportBlast(results []*xmlblast.Output, g blastRecordGroup, verbose bool) []blast.Record {
+func reportBlast(results []*blast.Output, g blastRecordGroup, verbose bool) []blast.Record {
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {
