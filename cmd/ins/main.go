@@ -26,7 +26,6 @@ import (
 	"github.com/biogo/biogo/seq"
 	"github.com/biogo/biogo/seq/linear"
 	"github.com/biogo/hts/fai"
-	"github.com/biogo/store/interval"
 
 	"github.com/kortschak/ins/blast"
 )
@@ -208,16 +207,19 @@ Options:
 		}
 	}
 
+	sort.Sort(bySubjectPosition(remappedHits))
 	if *cull {
 		log.Println("discarding low scoring nested features")
 		remappedHits = cullContained(remappedHits)
 	}
 
-	sort.Sort(bySubjectPosition(remappedHits))
-
 	if *jsonOut {
 		enc := json.NewEncoder(os.Stdout)
 		for _, r := range remappedHits {
+			if !r.IsValid() {
+				continue
+			}
+
 			err = enc.Encode(r)
 			if err != nil {
 				log.Fatalf("failed to write feature: %v", err)
@@ -230,6 +232,10 @@ Options:
 		}
 		enc := gff.NewWriter(os.Stdout, 60, true)
 		for _, r := range remappedHits {
+			if !r.IsValid() {
+				continue
+			}
+
 			if r.Strand < 0 {
 				r.SubjectStart, r.SubjectEnd = r.SubjectEnd, r.SubjectStart
 			}
@@ -261,45 +267,43 @@ Options:
 	log.Printf("masked sequence in %s", masked)
 }
 
-// cullContained returns a copy of hits with all hits that are completely contained by
-// a higher scoring hit removed.
+// cullContained blanks all hits that are completely contained by a higher scoring hit.
+// hits must be sorted bySubjectPosition.
 func cullContained(hits []blast.Record) []blast.Record {
-	var tree interval.IntTree
-	for i, r := range hits {
-		err := tree.Insert(subjectInterval{uid: uintptr(i), Record: r}, true)
-		if err != nil {
-			panic(fmt.Sprint(err))
+	for i, outer := range hits {
+		if !outer.IsValid() {
+			continue
 		}
-	}
-	tree.AdjustRanges()
-	var culled []blast.Record
-outer:
-	for _, r := range hits {
-		o := tree.Get(subjectInterval{Record: r})
-		for _, h := range o {
-			if h.(subjectInterval).BitScore > r.BitScore {
-				continue outer
+		candidates := hits[i+1:]
+		outerRight := max(outer.SubjectStart, outer.SubjectEnd)
+		for j, inner := range candidates {
+			if !inner.IsValid() {
+				continue
+			}
+			if inner.Strand != outer.Strand || inner.SubjectAccVer != outer.SubjectAccVer {
+				break
+			}
+
+			// All innerLeft must be >= an outerLeft due to sort order.
+
+			innerLeft := min(inner.SubjectStart, inner.SubjectEnd)
+			if innerLeft >= outerRight {
+				// No more possible contained hits from here.
+				break
+			}
+			innerRight := max(inner.SubjectStart, inner.SubjectEnd)
+			if innerRight > outerRight {
+				// TODO: Possible optimisation: if hits are sorted
+				// by right hand end after left hand end. When this
+				// condition is true, we're done with this loop.
+				continue
+			}
+			if inner.BitScore < outer.BitScore {
+				candidates[j] = blast.Record{}
 			}
 		}
-		culled = append(culled, r)
 	}
-	return culled
-}
-
-type subjectInterval struct {
-	uid uintptr
-	blast.Record
-}
-
-// Overlap returns whether the b interval completely contains i.
-func (i subjectInterval) Overlap(b interval.IntRange) bool {
-	left := min(i.SubjectStart, i.SubjectEnd)
-	right := max(i.SubjectStart, i.SubjectEnd)
-	return b.Start <= left && right <= b.End
-}
-func (i subjectInterval) ID() uintptr { return i.uid }
-func (i subjectInterval) Range() interval.IntRange {
-	return interval.IntRange{Start: min(i.SubjectStart, i.SubjectEnd), End: max(i.SubjectStart, i.SubjectEnd)}
+	return hits
 }
 
 type bySubjectPosition []blast.Record
