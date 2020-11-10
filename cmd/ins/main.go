@@ -161,6 +161,7 @@ Options:
 	}
 
 	remapCoords(hits, mx)
+	mx = nil
 
 	var remappedHits []blast.Record
 	qfa := fai.NewFile(query, qidx)
