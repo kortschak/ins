@@ -237,6 +237,11 @@ func reportBlast(results []*blast.Output, g blastRecordGroup, verbose bool) []bl
 					break
 				}
 
+				// TODO: Handle strand mismatches in a similar way to
+				// how we handle ID mismatches. This is slightly more
+				// complicated since we don't know strand until we get
+				// into the HSPs.
+
 				for _, hsp := range hit.Hsps {
 					// Convert to 0-based indexing.
 					hsp.QueryFrom--
