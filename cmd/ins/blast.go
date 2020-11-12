@@ -7,15 +7,19 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+
+	"modernc.org/kv"
 
 	"github.com/biogo/biogo/alphabet"
 	"github.com/biogo/biogo/io/seqio"
@@ -35,17 +39,21 @@ const (
 // are provided by search. The strings mflags and bflags are passed to makeblastdb
 // and blastn as flags without interpretation or checking. If logger is not nil,
 // output from the blast executable is written to it.
-func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mflags, bflags string, logger io.Writer) ([]blast.Record, error) {
+func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx map[string]fragment, mflags, bflags string, logger io.Writer) (*kv.DB, error) {
 	search.OutFormat = tabFmt
 
-	var hits []blast.Record
-	for _, lib := range libs {
-		for n := 0; n < maxIters; n++ {
-			working, err := mask(query, query.Name()+"-working", hits, 'N')
-			if err != nil {
-				return nil, err
-			}
+	opts := &kv.Options{Compare: groupByQueryOrderSubjectLeft}
+	hits, err := kv.Create(filepath.Join(filepath.Dir(query.Name()), "forward.db"), opts)
+	if err != nil {
+		return nil, err
+	}
 
+	for _, lib := range libs {
+		working, err := workingFile(query, "-working")
+		if err != nil {
+			return nil, err
+		}
+		for n := 0; n < maxIters; n++ {
 			mkdb, err := blast.MakeDB{DBType: "nucl", In: working, Out: working, ExtraFlags: mflags}.BuildCommand()
 			if err != nil {
 				return nil, err
@@ -92,7 +100,35 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mflag
 			if len(lastHits) == 0 {
 				break
 			}
-			hits = append(hits, lastHits...)
+
+			err = mask(working, lastHits, 'N')
+			if err != nil {
+				return nil, err
+			}
+
+			remapCoords(lastHits, mx)
+			err = hits.BeginTransaction()
+			if err != nil {
+				return nil, err
+			}
+			for _, h := range lastHits {
+				key := marshalBlastRecordKey(h)
+				// Keep a record of the actual hit purely for
+				// correctness auditing; the key has enough
+				// information for what we need.
+				value, err := json.Marshal(h)
+				if err != nil {
+					return nil, err
+				}
+				err = hits.Set(key, value)
+				if err != nil {
+					return nil, err
+				}
+			}
+			err = hits.Commit()
+			if err != nil {
+				return nil, err
+			}
 
 			err = lib.reset()
 			if err != nil {
@@ -103,12 +139,32 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mflag
 	return hits, nil
 }
 
+func workingFile(src *os.File, suffix string) (name string, err error) {
+	dst, err := os.Create(src.Name() + suffix)
+	if err != nil {
+		return "", err
+	}
+	_, err = src.Seek(0, io.SeekStart)
+	if err != nil {
+		return "", err
+	}
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", err
+	}
+	err = dst.Close()
+	if err != nil {
+		return "", err
+	}
+	return dst.Name(), nil
+}
+
 // runBlastXML runs a BLAST search of the sequences in libs against a database
 // constructed from the sequences in query with details from g. The BLAST parameters
 // are provided by search. The strings mflags and bflags are passed to makeblastdb
 // and blastn as flags without interpretation or checking. Work is done in workdir
 // and if logger is not nil, output from the blast executable is written to it.
-func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*blast.Output, error) {
+func runBlastXML(search blast.Nucleic, g blastRecordKey, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*blast.Output, error) {
 	search.OutFormat = xmlFmt
 
 	working := filepath.Join(workdir, g.QueryAccVer+"-working")
@@ -116,7 +172,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("%v < <%s %+d matches>", mkdb, g.QueryAccVer, g.strand)
+	log.Printf("%v < <%s %+d matches>", mkdb, g.QueryAccVer, g.Strand)
 	mkdb.Stdin = query
 	mkdb.Stdout = logger
 	mkdb.Stderr = logger
@@ -177,7 +233,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 						hStrand = -1
 					}
 					strand := int8(qStrand * hStrand)
-					if strand != g.strand {
+					if strand != g.Strand {
 						continue
 					}
 					hit.Hsps[k] = hsp
@@ -198,7 +254,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 
 // reportBlast converts BLAST results into blast.Records based on the
 // coordinates of a genome region g.
-func reportBlast(results []*blast.Output, g blastRecordGroup, verbose bool) []blast.Record {
+func reportBlast(results []*blast.Output, g blastRecordKey, verbose bool) []blast.Record {
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {
@@ -260,7 +316,7 @@ func reportBlast(results []*blast.Output, g blastRecordGroup, verbose bool) []bl
 						SubjectStart:  hsp.HitFrom,
 						SubjectEnd:    hsp.HitTo,
 
-						Strand: g.strand,
+						Strand: g.Strand,
 
 						PctIdentity:     100 * float64(*hsp.HspIdentity) / float64(*hsp.AlignLen),
 						AlignmentLength: *hsp.AlignLen,
@@ -279,26 +335,19 @@ func reportBlast(results []*blast.Output, g blastRecordGroup, verbose bool) []bl
 
 // mask writes a masked copy of the genome in the src file based on the given
 // blast hits. Regions that are masked are replaced with the masked alphabet.Letter.
-func mask(src *os.File, dstPath string, hits []blast.Record, masked alphabet.Letter) (name string, err error) {
-	log.Printf("masking %s", src.Name())
-	_, err = src.Seek(0, io.SeekStart)
+func mask(path string, hits []blast.Record, masked alphabet.Letter) error {
+	log.Printf("masking %s", path)
+	src, err := os.Open(path)
 	if err != nil {
-		return "", err
+		return err
 	}
+	defer src.Close()
 
-	working, err := os.Create(dstPath)
+	dst, err := ioutil.TempFile(filepath.Dir(path), filepath.Base(path)+"-*")
 	if err != nil {
-		return "", err
+		return err
 	}
-	defer working.Close()
-
-	if len(hits) == 0 {
-		_, err = io.Copy(working, src)
-		if err != nil {
-			return working.Name(), err
-		}
-		return working.Name(), working.Sync()
-	}
+	defer dst.Close()
 
 	hitsOf := make(map[string][]blast.Record)
 	for _, h := range hits {
@@ -320,14 +369,17 @@ func mask(src *os.File, dstPath string, hits []blast.Record, masked alphabet.Let
 				seq.Seq[i-seq.Offset] = masked
 			}
 		}
-		fmt.Fprintf(working, "%60a\n", seq)
+		fmt.Fprintf(dst, "%60a\n", seq)
 	}
 	err = sc.Error()
 	if err != nil {
-		return working.Name(), err
+		return err
 	}
-
-	return working.Name(), working.Sync()
+	err = dst.Sync()
+	if err != nil {
+		return err
+	}
+	return os.Rename(dst.Name(), path)
 }
 
 // detail is the class and length of a repeat type.

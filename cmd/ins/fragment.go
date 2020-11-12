@@ -7,7 +7,9 @@ package main
 import (
 	"fmt"
 	"io"
-	"sort"
+	"path/filepath"
+
+	"modernc.org/kv"
 
 	"github.com/biogo/biogo/alphabet"
 	"github.com/biogo/biogo/io/seqio"
@@ -71,8 +73,6 @@ func remapCoords(hits []blast.Record, frags map[string]fragment) {
 		r.SubjectEnd += iv.start
 		hits[i] = r
 	}
-
-	sort.Sort(bySubjectLeft(hits))
 }
 
 type fragment struct {
@@ -80,88 +80,90 @@ type fragment struct {
 	start, end int
 }
 
-// merge takes a sorted set of hits and groups them into individual groups based
+// merge takes a sorted set of hits and groups them into individual regions based
 // on proximity. If adjacent hits are within near, they are grouped.
-func merge(hits []blast.Record, near int) (groups []blastRecordGroup) {
-	if len(hits) == 0 {
-		return nil
+func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
+	opts := &kv.Options{Compare: groupByQueryOrderSubjectLeft}
+	regions, err = kv.Create(filepath.Join(dir, "regions.db"), opts)
+	if err != nil {
+		return nil, err
+	}
+	err = hits.BeginTransaction()
+	if err != nil {
+		return nil, err
 	}
 
-	r := hits[0]
-	groups = []blastRecordGroup{{
-		QueryAccVer:   r.QueryAccVer,
-		SubjectAccVer: r.SubjectAccVer,
-		left:          min(r.SubjectStart, r.SubjectEnd),
-		right:         max(r.SubjectStart, r.SubjectEnd),
-		strand:        r.Strand,
-		recs:          []blast.Record{r},
-	}}
-	for _, r := range hits[1:] {
-		left := min(r.SubjectStart, r.SubjectEnd)
-		right := max(r.SubjectStart, r.SubjectEnd)
+	it, err := hits.SeekFirst()
+	if err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
+		return nil, err
+	}
+	k, _, err := it.Next()
+	if err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
+		return nil, err
+	}
+	last := unmarshalBlastRecordKey(k)
+	last.QueryStart, last.QueryEnd = 0, 0
+	n := 1
+	for {
+		k, _, err := it.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
 
-		last := &groups[len(groups)-1]
-		if left-last.right <= near && r.Strand == last.strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
-			last.recs = append(last.recs, r)
-			last.right = max(last.right, right)
+		r := unmarshalBlastRecordKey(k)
+		if r.SubjectLeft-last.SubjectRight <= int64(near) && r.Strand == last.Strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
+			if r.SubjectRight > last.SubjectRight {
+				last.SubjectRight = r.SubjectRight
+			}
+			n++
 			continue
 		}
 
-		groups = append(groups, blastRecordGroup{
-			QueryAccVer:   r.QueryAccVer,
-			SubjectAccVer: r.SubjectAccVer,
-			left:          left,
-			right:         right,
-			strand:        r.Strand,
-			recs:          []blast.Record{r},
-		})
+		err = regions.Set(marshalBlastRecordKey(blast.Record{
+			SubjectAccVer: last.SubjectAccVer,
+			SubjectStart:  int(last.SubjectLeft),
+			SubjectEnd:    int(last.SubjectRight),
+			QueryAccVer:   last.QueryAccVer,
+			Strand:        last.Strand,
+		}), marshalInt(n))
+		if err != nil {
+			return nil, err
+		}
+		last = r
+		n = 1
+	}
+	final, _, err := regions.Last()
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if err == io.EOF || last != unmarshalBlastRecordKey(final) {
+		err = regions.Set(marshalBlastRecordKey(blast.Record{
+			SubjectAccVer: last.SubjectAccVer,
+			SubjectStart:  int(last.SubjectLeft),
+			SubjectEnd:    int(last.SubjectRight),
+			QueryAccVer:   last.QueryAccVer,
+			Strand:        last.Strand,
+		}), marshalInt(n))
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return groups
-}
-
-// blastREcord group is a set of blast hits that are grouped by proximity.
-type blastRecordGroup struct {
-	QueryAccVer   string
-	SubjectAccVer string
-	left          int
-	right         int
-	strand        int8
-
-	recs []blast.Record
-}
-
-// bySubjectLeft satisfies the sort.Interface, ordering by strand, query name,
-// subject name, subject position and BLAST bitscore.
-type bySubjectLeft []blast.Record
-
-func (r bySubjectLeft) Len() int {
-	return len(r)
-}
-func (r bySubjectLeft) Less(i, j int) bool {
-	// Separate strands, (+) first.
-	if r[i].Strand != r[j].Strand {
-		return r[i].Strand > r[j].Strand
+	err = hits.Commit()
+	if err != nil {
+		return nil, err
 	}
 
-	// Group elements of the same type.
-	if r[i].QueryAccVer != r[j].QueryAccVer {
-		return r[i].QueryAccVer < r[j].QueryAccVer
-	}
-
-	// Sort by left position, with higher scoring matches first.
-	if r[i].SubjectAccVer != r[j].SubjectAccVer {
-		return r[i].SubjectAccVer < r[j].SubjectAccVer
-	}
-	leftI := min(r[i].SubjectStart, r[i].SubjectEnd)
-	leftJ := min(r[j].SubjectStart, r[j].SubjectEnd)
-	if leftI < leftJ {
-		return true
-	}
-	return leftI == leftJ && r[i].BitScore > r[j].BitScore
-}
-func (r bySubjectLeft) Swap(i, j int) {
-	r[i], r[j] = r[j], r[i]
+	return regions, nil
 }
 
 func min(a, b int) int {
@@ -171,9 +173,8 @@ func min(a, b int) int {
 	return b
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+func marshalInt(n int) []byte {
+	var buf [8]byte
+	order.PutUint64(buf[:], uint64(n))
+	return buf[:]
 }
