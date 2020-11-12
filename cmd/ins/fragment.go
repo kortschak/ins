@@ -109,7 +109,9 @@ func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
 
 		r := unmarshalBlastRecordKey(k)
 		if r.SubjectLeft-last.SubjectRight <= int64(near) && r.Strand == last.Strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
-			last.SubjectRight = max(last.SubjectRight, r.SubjectRight)
+			if r.SubjectRight > last.SubjectRight {
+				last.SubjectRight = r.SubjectRight
+			}
 			continue
 		}
 
@@ -125,13 +127,6 @@ func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
 
 func min(a, b int) int {
 	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int64) int64 {
-	if a > b {
 		return a
 	}
 	return b
