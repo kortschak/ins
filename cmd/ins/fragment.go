@@ -96,9 +96,8 @@ func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
 		}
 		return nil, err
 	}
-	r := unmarshalBlastRecordKey(k)
-	r.QueryStart, r.QueryEnd = 0, 0
-	regions = []blastRecordKey{r}
+	last := unmarshalBlastRecordKey(k)
+	last.QueryStart, last.QueryEnd = 0, 0
 	for {
 		k, _, err := it.Next()
 		if err != nil {
@@ -107,19 +106,18 @@ func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
 			}
 			return nil, err
 		}
-		r = unmarshalBlastRecordKey(k)
-		left := r.SubjectLeft
-		right := r.SubjectRight
 
-		last := &regions[len(regions)-1]
-		if left-last.SubjectRight <= int64(near) && r.Strand == last.Strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
-			last.SubjectRight = max(last.SubjectRight, right)
+		r := unmarshalBlastRecordKey(k)
+		if r.SubjectLeft-last.SubjectRight <= int64(near) && r.Strand == last.Strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
+			last.SubjectRight = max(last.SubjectRight, r.SubjectRight)
 			continue
 		}
 
-		r.SubjectLeft = left
-		r.SubjectRight = right
-		regions = append(regions, r)
+		regions = append(regions, last)
+		last = r
+	}
+	if last != regions[len(regions)-1] {
+		regions = append(regions, last)
 	}
 
 	return regions, nil
