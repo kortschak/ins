@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 
+	"modernc.org/kv"
+
 	"github.com/biogo/biogo/alphabet"
 	"github.com/biogo/biogo/io/seqio"
 	"github.com/biogo/biogo/io/seqio/fasta"
@@ -79,22 +81,40 @@ type fragment struct {
 
 // merge takes a sorted set of hits and groups them into individual groups based
 // on proximity. If adjacent hits are within near, they are grouped.
-func merge(hits []blast.Record, near int) (groups []blastRecordGroup) {
-	if len(hits) == 0 {
-		return nil
+func merge(hits *kv.DB, near int) (groups []blastRecordGroup, err error) {
+	it, err := hits.SeekFirst()
+	if err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
+		return nil, err
 	}
-
-	r := hits[0]
+	k, _, err := it.Next()
+	if err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
+		return nil, err
+	}
+	r := unmarshalBlastRecordKey(k)
 	groups = []blastRecordGroup{{
 		QueryAccVer:   r.QueryAccVer,
 		SubjectAccVer: r.SubjectAccVer,
-		left:          min(r.SubjectStart, r.SubjectEnd),
-		right:         max(r.SubjectStart, r.SubjectEnd),
+		left:          int(r.SubjectLeft),
+		right:         int(r.SubjectRight),
 		strand:        r.Strand,
 	}}
-	for _, r := range hits[1:] {
-		left := min(r.SubjectStart, r.SubjectEnd)
-		right := max(r.SubjectStart, r.SubjectEnd)
+	for {
+		k, _, err := it.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		r := unmarshalBlastRecordKey(k)
+		left := int(r.SubjectLeft)
+		right := int(r.SubjectRight)
 
 		last := &groups[len(groups)-1]
 		if left-last.right <= near && r.Strand == last.strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
@@ -111,7 +131,7 @@ func merge(hits []blast.Record, near int) (groups []blastRecordGroup) {
 		})
 	}
 
-	return groups
+	return groups, nil
 }
 
 // blastREcord group is a set of blast hits that are grouped by proximity.
@@ -121,39 +141,6 @@ type blastRecordGroup struct {
 	left          int
 	right         int
 	strand        int8
-}
-
-// bySubjectLeft satisfies the sort.Interface, ordering by strand, query name,
-// subject name, subject position and BLAST bitscore.
-type bySubjectLeft []blast.Record
-
-func (r bySubjectLeft) Len() int {
-	return len(r)
-}
-func (r bySubjectLeft) Less(i, j int) bool {
-	// Separate strands, (+) first.
-	if r[i].Strand != r[j].Strand {
-		return r[i].Strand > r[j].Strand
-	}
-
-	// Group elements of the same type.
-	if r[i].QueryAccVer != r[j].QueryAccVer {
-		return r[i].QueryAccVer < r[j].QueryAccVer
-	}
-
-	// Sort by left position, with higher scoring matches first.
-	if r[i].SubjectAccVer != r[j].SubjectAccVer {
-		return r[i].SubjectAccVer < r[j].SubjectAccVer
-	}
-	leftI := min(r[i].SubjectStart, r[i].SubjectEnd)
-	leftJ := min(r[j].SubjectStart, r[j].SubjectEnd)
-	if leftI < leftJ {
-		return true
-	}
-	return leftI == leftJ && r[i].BitScore > r[j].BitScore
-}
-func (r bySubjectLeft) Swap(i, j int) {
-	r[i], r[j] = r[j], r[i]
 }
 
 func min(a, b int) int {

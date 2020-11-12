@@ -7,6 +7,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -17,6 +18,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"modernc.org/kv"
 
 	"github.com/biogo/biogo/alphabet"
 	"github.com/biogo/biogo/io/seqio"
@@ -36,10 +39,15 @@ const (
 // are provided by search. The strings mflags and bflags are passed to makeblastdb
 // and blastn as flags without interpretation or checking. If logger is not nil,
 // output from the blast executable is written to it.
-func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx map[string]fragment, mflags, bflags string, logger io.Writer) ([]blast.Record, error) {
+func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx map[string]fragment, mflags, bflags string, logger io.Writer) (*kv.DB, error) {
 	search.OutFormat = tabFmt
 
-	var hits []blast.Record
+	opts := &kv.Options{Compare: groupByQueryOrderSubjectLeft}
+	hits, err := kv.Create(filepath.Join(filepath.Dir(query.Name()), "forward.db"), opts)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, lib := range libs {
 		working, err := workingFile(query, "-working")
 		if err != nil {
@@ -99,7 +107,28 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx ma
 			}
 
 			remapCoords(lastHits, mx)
-			hits = append(hits, lastHits...)
+			err = hits.BeginTransaction()
+			if err != nil {
+				return nil, err
+			}
+			for _, h := range lastHits {
+				key := marshalBlastRecordKey(h)
+				// Keep a record of the actual hit purely for
+				// correctness auditing; the key has enough
+				// information for what we need.
+				value, err := json.Marshal(h)
+				if err != nil {
+					return nil, err
+				}
+				err = hits.Set(key, value)
+				if err != nil {
+					return nil, err
+				}
+			}
+			err = hits.Commit()
+			if err != nil {
+				return nil, err
+			}
 
 			err = lib.reset()
 			if err != nil {

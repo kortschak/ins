@@ -159,11 +159,17 @@ Options:
 		log.Fatal(err)
 	}
 
-	sort.Sort(bySubjectLeft(hits))
+	groups, err := merge(hits, near)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = hits.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var remappedHits []blast.Record
 	qfa := fai.NewFile(query, qidx)
-	groups := merge(hits, near)
 	var buf bytes.Buffer
 	for i, g := range groups {
 		seq, err := qfa.SeqRange(g.SubjectAccVer, g.left, g.right)
