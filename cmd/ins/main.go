@@ -161,7 +161,7 @@ Options:
 		log.Fatal(err)
 	}
 
-	groups, err := merge(hits, near)
+	regions, err := merge(hits, near)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -178,7 +178,7 @@ Options:
 	qfa := fai.NewFile(query, qidx)
 	var buf bytes.Buffer
 	var n int
-	for i, g := range groups {
+	for i, g := range regions {
 		seq, err := qfa.SeqRange(g.SubjectAccVer, g.left, g.right)
 		if err != nil {
 			log.Fatal(err)
@@ -191,7 +191,7 @@ Options:
 		s.Desc = fmt.Sprintf("%d %d %s %+d", g.left, g.right, g.QueryAccVer, g.strand)
 		fmt.Fprintf(&buf, "%60a\n", s)
 
-		if i == len(groups)-1 || g.QueryAccVer != groups[i+1].QueryAccVer {
+		if i == len(regions)-1 || g.QueryAccVer != regions[i+1].QueryAccVer {
 			var libraries []library
 			if len(libs) > 1 && *pool {
 				libraries, err = newStream(libs)

@@ -79,9 +79,9 @@ type fragment struct {
 	start, end int
 }
 
-// merge takes a sorted set of hits and groups them into individual groups based
+// merge takes a sorted set of hits and groups them into individual regions based
 // on proximity. If adjacent hits are within near, they are grouped.
-func merge(hits *kv.DB, near int) (groups []blastRecordGroup, err error) {
+func merge(hits *kv.DB, near int) (regions []blastRecordGroup, err error) {
 	it, err := hits.SeekFirst()
 	if err != nil {
 		if err == io.EOF {
@@ -97,7 +97,7 @@ func merge(hits *kv.DB, near int) (groups []blastRecordGroup, err error) {
 		return nil, err
 	}
 	r := unmarshalBlastRecordKey(k)
-	groups = []blastRecordGroup{{
+	regions = []blastRecordGroup{{
 		QueryAccVer:   r.QueryAccVer,
 		SubjectAccVer: r.SubjectAccVer,
 		left:          int(r.SubjectLeft),
@@ -116,13 +116,13 @@ func merge(hits *kv.DB, near int) (groups []blastRecordGroup, err error) {
 		left := int(r.SubjectLeft)
 		right := int(r.SubjectRight)
 
-		last := &groups[len(groups)-1]
+		last := &regions[len(regions)-1]
 		if left-last.right <= near && r.Strand == last.strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
 			last.right = max(last.right, right)
 			continue
 		}
 
-		groups = append(groups, blastRecordGroup{
+		regions = append(regions, blastRecordGroup{
 			QueryAccVer:   r.QueryAccVer,
 			SubjectAccVer: r.SubjectAccVer,
 			left:          left,
@@ -131,7 +131,7 @@ func merge(hits *kv.DB, near int) (groups []blastRecordGroup, err error) {
 		})
 	}
 
-	return groups, nil
+	return regions, nil
 }
 
 // blastREcord group is a set of blast hits that are grouped by proximity.
