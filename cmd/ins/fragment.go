@@ -91,7 +91,6 @@ func merge(hits []blast.Record, near int) (groups []blastRecordGroup) {
 		left:          min(r.SubjectStart, r.SubjectEnd),
 		right:         max(r.SubjectStart, r.SubjectEnd),
 		strand:        r.Strand,
-		recs:          []blast.Record{r},
 	}}
 	for _, r := range hits[1:] {
 		left := min(r.SubjectStart, r.SubjectEnd)
@@ -99,7 +98,6 @@ func merge(hits []blast.Record, near int) (groups []blastRecordGroup) {
 
 		last := &groups[len(groups)-1]
 		if left-last.right <= near && r.Strand == last.strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
-			last.recs = append(last.recs, r)
 			last.right = max(last.right, right)
 			continue
 		}
@@ -110,7 +108,6 @@ func merge(hits []blast.Record, near int) (groups []blastRecordGroup) {
 			left:          left,
 			right:         right,
 			strand:        r.Strand,
-			recs:          []blast.Record{r},
 		})
 	}
 
@@ -124,8 +121,6 @@ type blastRecordGroup struct {
 	left          int
 	right         int
 	strand        int8
-
-	recs []blast.Record
 }
 
 // bySubjectLeft satisfies the sort.Interface, ordering by strand, query name,
