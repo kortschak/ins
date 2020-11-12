@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"modernc.org/kv"
 
@@ -81,7 +82,17 @@ type fragment struct {
 
 // merge takes a sorted set of hits and groups them into individual regions based
 // on proximity. If adjacent hits are within near, they are grouped.
-func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
+func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
+	opts := &kv.Options{Compare: groupByQueryOrderSubjectLeft}
+	regions, err = kv.Create(filepath.Join(dir, "regions.db"), opts)
+	if err != nil {
+		return nil, err
+	}
+	err = hits.BeginTransaction()
+	if err != nil {
+		return nil, err
+	}
+
 	it, err := hits.SeekFirst()
 	if err != nil {
 		if err == io.EOF {
@@ -98,6 +109,7 @@ func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
 	}
 	last := unmarshalBlastRecordKey(k)
 	last.QueryStart, last.QueryEnd = 0, 0
+	n := 1
 	for {
 		k, _, err := it.Next()
 		if err != nil {
@@ -112,14 +124,43 @@ func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
 			if r.SubjectRight > last.SubjectRight {
 				last.SubjectRight = r.SubjectRight
 			}
+			n++
 			continue
 		}
 
-		regions = append(regions, last)
+		err = regions.Set(marshalBlastRecordKey(blast.Record{
+			SubjectAccVer: last.SubjectAccVer,
+			SubjectStart:  int(last.SubjectLeft),
+			SubjectEnd:    int(last.SubjectRight),
+			QueryAccVer:   last.QueryAccVer,
+			Strand:        last.Strand,
+		}), marshalInt(n))
+		if err != nil {
+			return nil, err
+		}
 		last = r
+		n = 1
 	}
-	if last != regions[len(regions)-1] {
-		regions = append(regions, last)
+	final, _, err := regions.Last()
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	if err == io.EOF || last != unmarshalBlastRecordKey(final) {
+		err = regions.Set(marshalBlastRecordKey(blast.Record{
+			SubjectAccVer: last.SubjectAccVer,
+			SubjectStart:  int(last.SubjectLeft),
+			SubjectEnd:    int(last.SubjectRight),
+			QueryAccVer:   last.QueryAccVer,
+			Strand:        last.Strand,
+		}), marshalInt(n))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = hits.Commit()
+	if err != nil {
+		return nil, err
 	}
 
 	return regions, nil
@@ -130,4 +171,10 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func marshalInt(n int) []byte {
+	var buf [8]byte
+	order.PutUint64(buf[:], uint64(n))
+	return buf[:]
 }

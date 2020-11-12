@@ -161,7 +161,7 @@ Options:
 		log.Fatal(err)
 	}
 
-	regions, err := merge(hits, near)
+	regions, err := merge(hits, near, tmpDir)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -176,9 +176,41 @@ Options:
 		log.Fatal(err)
 	}
 	qfa := fai.NewFile(query, qidx)
-	var buf bytes.Buffer
-	var n int
-	for i, g := range regions {
+	var (
+		g   blastRecordKey
+		n   int
+		buf bytes.Buffer
+	)
+	final := false
+	it, err := regions.SeekFirst()
+	if err != nil {
+		if err != io.EOF {
+			log.Fatal(err)
+		}
+		final = true
+	} else {
+		k, _, err := it.Next()
+		if err != nil {
+			if err != io.EOF {
+				log.Fatal(err)
+			}
+			final = true
+		} else {
+			g = unmarshalBlastRecordKey(k)
+		}
+	}
+	for !final {
+		var next blastRecordKey
+		k, _, err := it.Next()
+		if err != nil {
+			if err != io.EOF {
+				log.Fatal(err)
+			}
+			final = true
+		} else {
+			next = unmarshalBlastRecordKey(k)
+		}
+
 		seq, err := qfa.SeqRange(g.SubjectAccVer, int(g.SubjectLeft), int(g.SubjectRight))
 		if err != nil {
 			log.Fatal(err)
@@ -191,7 +223,7 @@ Options:
 		s.Desc = fmt.Sprintf("%d %d %s %+d", g.SubjectLeft, g.SubjectRight, g.QueryAccVer, g.Strand)
 		fmt.Fprintf(&buf, "%60a\n", s)
 
-		if i == len(regions)-1 || g.QueryAccVer != regions[i+1].QueryAccVer {
+		if final || g.QueryAccVer != next.QueryAccVer {
 			var libraries []library
 			if len(libs) > 1 && *pool {
 				libraries, err = newStream(libs)
@@ -236,6 +268,7 @@ Options:
 			log.Printf("holding %d total remapped hits", n)
 			buf.Reset()
 		}
+		g = next
 	}
 
 	if *cull {
