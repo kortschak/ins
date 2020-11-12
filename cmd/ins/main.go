@@ -121,7 +121,7 @@ Options:
 	}
 	defer query.Close()
 
-	frags, err := ioutil.TempFile(tmpDir, "dbmx-*")
+	frags, err := os.Create(filepath.Join(tmpDir, "query-fragments"))
 	if err != nil {
 		log.Fatal(err)
 	}
