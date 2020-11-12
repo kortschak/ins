@@ -17,8 +17,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
-	"sort"
+
+	"modernc.org/kv"
 
 	"github.com/biogo/biogo/alphabet"
 	"github.com/biogo/biogo/io/featio/gff"
@@ -168,9 +170,14 @@ Options:
 		log.Fatal(err)
 	}
 
-	var remappedHits []blast.Record
+	opts := &kv.Options{Compare: bySubjectPosition}
+	remappedHits, err := kv.Create(filepath.Join(tmpDir, "reverse.db"), opts)
+	if err != nil {
+		log.Fatal(err)
+	}
 	qfa := fai.NewFile(query, qidx)
 	var buf bytes.Buffer
+	var n int
 	for i, g := range groups {
 		seq, err := qfa.SeqRange(g.SubjectAccVer, g.left, g.right)
 		if err != nil {
@@ -206,29 +213,63 @@ Options:
 
 			reported := reportBlast(hits, g, *verbose)
 			log.Printf("got %d reciprocal hits", len(reported))
-			remappedHits = append(remappedHits, reported...)
-			log.Printf("holding %d total remapped hits", len(remappedHits))
+			err = remappedHits.BeginTransaction()
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, h := range reported {
+				key := marshalBlastRecordKey(h)
+				value, err := json.Marshal(h)
+				if err != nil {
+					log.Fatal(err)
+				}
+				err = remappedHits.Set(key, value)
+				if err != nil {
+					log.Fatal(err)
+				}
+			}
+			err = remappedHits.Commit()
+			if err != nil {
+				log.Fatal(err)
+			}
+			n += len(reported)
+			log.Printf("holding %d total remapped hits", n)
 			buf.Reset()
 		}
 	}
 
-	sort.Sort(bySubjectPosition(remappedHits))
 	if *cull {
 		log.Println("discarding low scoring nested features")
-		remappedHits = cullContained(remappedHits)
+		err = cullContained(remappedHits)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
+	var masking []blast.Record
+	buf.Reset()
+	dec := json.NewDecoder(&buf)
 	if *jsonOut {
-		enc := json.NewEncoder(os.Stdout)
-		for _, r := range remappedHits {
-			if !r.IsValid() {
-				continue
-			}
-
-			err = enc.Encode(r)
+		it, err := remappedHits.SeekFirst()
+		if err != nil && err != io.EOF {
+			log.Fatal(err)
+		}
+		for {
+			_, m, err := it.Next()
 			if err != nil {
-				log.Fatalf("failed to write feature: %v", err)
+				if err == io.EOF {
+					break
+				}
+				log.Fatal(err)
 			}
+			buf.Write(m)
+			var r blast.Record
+			err = dec.Decode(&r)
+			if err != nil {
+				log.Fatal(err)
+			}
+			masking = append(masking, r)
+			os.Stdout.Write(m)
 		}
 	} else {
 		details, err := libDetails(libraries)
@@ -236,10 +277,25 @@ Options:
 			log.Fatalf("failed to get feature lengths: %v", err)
 		}
 		enc := gff.NewWriter(os.Stdout, 60, true)
-		for _, r := range remappedHits {
-			if !r.IsValid() {
-				continue
+		it, err := remappedHits.SeekFirst()
+		if err != nil && err != io.EOF {
+			log.Fatal(err)
+		}
+		for {
+			_, m, err := it.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.Fatal(err)
 			}
+			buf.Write(m)
+			var r blast.Record
+			err = dec.Decode(&r)
+			if err != nil {
+				log.Fatal(err)
+			}
+			masking = append(masking, r)
 
 			if r.Strand < 0 {
 				r.SubjectStart, r.SubjectEnd = r.SubjectEnd, r.SubjectStart
@@ -269,7 +325,7 @@ Options:
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = mask(masked, remappedHits, 'N')
+	err = mask(masked, masking, 'N')
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -278,53 +334,73 @@ Options:
 
 // cullContained blanks all hits that are completely contained by a higher scoring hit.
 // hits must be sorted bySubjectPosition.
-func cullContained(hits []blast.Record) []blast.Record {
-	for i, outer := range hits {
-		if !outer.IsValid() {
-			continue
+func cullContained(hits *kv.DB) error {
+	outerIt, err := hits.SeekFirst()
+	if err != nil {
+		return err
+	}
+
+	for {
+		k, _, err := outerIt.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
 		}
-		candidates := hits[i+1:]
-		outerRight := max(outer.SubjectStart, outer.SubjectEnd)
-		for j, inner := range candidates {
-			if !inner.IsValid() {
+
+		outer := unmarshalBlastRecordKey(k)
+		candidates, ok, err := hits.Seek(k)
+		if !ok {
+			panic(fmt.Sprintf("expected match for existing key: %+v", outer))
+		}
+		if err != nil {
+			if err == io.EOF {
 				continue
 			}
+			return err
+		}
+		_, _, err = candidates.Next()
+		if err != nil {
+			if err == io.EOF {
+				continue
+			}
+			return err
+		}
+
+		for {
+			j, _, err := candidates.Next()
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+
+			inner := unmarshalBlastRecordKey(j)
 			if inner.Strand != outer.Strand || inner.SubjectAccVer != outer.SubjectAccVer {
 				break
 			}
 
 			// All innerLeft must be >= an outerLeft due to sort order.
 
-			innerLeft := min(inner.SubjectStart, inner.SubjectEnd)
-			if innerLeft >= outerRight {
+			if inner.SubjectLeft >= outer.SubjectRight {
 				// No more possible contained hits from here.
 				break
 			}
-			innerRight := max(inner.SubjectStart, inner.SubjectEnd)
-			if innerRight > outerRight {
-				// TODO: Possible optimisation: if hits are sorted
-				// by right hand end after left hand end. When this
-				// condition is true, we're done with this loop.
+			if inner.SubjectRight > outer.SubjectRight {
 				continue
 			}
 			if inner.BitScore < outer.BitScore {
-				candidates[j] = blast.Record{}
+				err = hits.Delete(j)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
-	return hits
+	return nil
 }
-
-type bySubjectPosition []blast.Record
-
-func (r bySubjectPosition) Len() int { return len(r) }
-func (r bySubjectPosition) Less(i, j int) bool {
-	if r[i].SubjectAccVer < r[j].SubjectAccVer {
-		return true
-	}
-	return r[i].SubjectAccVer == r[j].SubjectAccVer && min(r[i].SubjectStart, r[i].SubjectEnd) < min(r[j].SubjectStart, r[j].SubjectEnd)
-}
-func (r bySubjectPosition) Swap(i, j int) { r[i], r[j] = r[j], r[i] }
 
 // sliceValue is a multi-value flag value.
 type sliceValue []string

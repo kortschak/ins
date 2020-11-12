@@ -81,6 +81,74 @@ func groupByQueryOrderSubjectLeft(x, y []byte) int {
 	panic("unreachable")
 }
 
+// bySubjectPosition is a kv compare function, ordering by strand, subject name,
+// subject position and BLAST bitscore.
+func bySubjectPosition(x, y []byte) int {
+	if bytes.Equal(x, y) {
+		return 0
+	}
+
+	rx := unmarshalBlastRecordKey(x)
+	ry := unmarshalBlastRecordKey(y)
+
+	// Separate strands, (+) first.
+	switch {
+	case rx.Strand > ry.Strand:
+		return -1
+	case rx.Strand < ry.Strand:
+		return 1
+	}
+
+	// Sort by left position, longer repeats first,
+	// and with higher scoring matches first.
+	switch {
+	case rx.SubjectAccVer < ry.SubjectAccVer:
+		return -1
+	case rx.SubjectAccVer > ry.SubjectAccVer:
+		return 1
+	}
+	switch {
+	case rx.SubjectLeft < ry.SubjectLeft:
+		return -1
+	case rx.SubjectLeft > ry.SubjectLeft:
+		return 1
+	}
+	switch {
+	case rx.SubjectRight > ry.SubjectRight:
+		return -1
+	case rx.SubjectRight < ry.SubjectRight:
+		return 1
+	}
+	switch {
+	case rx.BitScore > ry.BitScore:
+		return -1
+	case rx.BitScore < ry.BitScore:
+		return 1
+	}
+
+	// Ensure key uniqueness.
+	switch {
+	case rx.QueryAccVer < ry.QueryAccVer:
+		return -1
+	case rx.QueryAccVer > ry.QueryAccVer:
+		return 1
+	}
+	switch {
+	case rx.QueryStart < ry.QueryStart:
+		return -1
+	case rx.QueryStart > ry.QueryStart:
+		return 1
+	}
+	switch {
+	case rx.QueryEnd < ry.QueryEnd:
+		return -1
+	case rx.QueryEnd > ry.QueryEnd:
+		return 1
+	}
+
+	panic("unreachable")
+}
+
 type blastRecordKey struct {
 	SubjectAccVer string
 	SubjectLeft   int64
