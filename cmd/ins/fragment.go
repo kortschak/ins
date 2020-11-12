@@ -81,7 +81,7 @@ type fragment struct {
 
 // merge takes a sorted set of hits and groups them into individual regions based
 // on proximity. If adjacent hits are within near, they are grouped.
-func merge(hits *kv.DB, near int) (regions []blastRecordGroup, err error) {
+func merge(hits *kv.DB, near int) (regions []blastRecordKey, err error) {
 	it, err := hits.SeekFirst()
 	if err != nil {
 		if err == io.EOF {
@@ -97,13 +97,8 @@ func merge(hits *kv.DB, near int) (regions []blastRecordGroup, err error) {
 		return nil, err
 	}
 	r := unmarshalBlastRecordKey(k)
-	regions = []blastRecordGroup{{
-		QueryAccVer:   r.QueryAccVer,
-		SubjectAccVer: r.SubjectAccVer,
-		left:          int(r.SubjectLeft),
-		right:         int(r.SubjectRight),
-		strand:        r.Strand,
-	}}
+	r.QueryStart, r.QueryEnd = 0, 0
+	regions = []blastRecordKey{r}
 	for {
 		k, _, err := it.Next()
 		if err != nil {
@@ -112,35 +107,22 @@ func merge(hits *kv.DB, near int) (regions []blastRecordGroup, err error) {
 			}
 			return nil, err
 		}
-		r := unmarshalBlastRecordKey(k)
-		left := int(r.SubjectLeft)
-		right := int(r.SubjectRight)
+		r = unmarshalBlastRecordKey(k)
+		left := r.SubjectLeft
+		right := r.SubjectRight
 
 		last := &regions[len(regions)-1]
-		if left-last.right <= near && r.Strand == last.strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
-			last.right = max(last.right, right)
+		if left-last.SubjectRight <= int64(near) && r.Strand == last.Strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
+			last.SubjectRight = max(last.SubjectRight, right)
 			continue
 		}
 
-		regions = append(regions, blastRecordGroup{
-			QueryAccVer:   r.QueryAccVer,
-			SubjectAccVer: r.SubjectAccVer,
-			left:          left,
-			right:         right,
-			strand:        r.Strand,
-		})
+		r.SubjectLeft = left
+		r.SubjectRight = right
+		regions = append(regions, r)
 	}
 
 	return regions, nil
-}
-
-// blastREcord group is a set of blast hits that are grouped by proximity.
-type blastRecordGroup struct {
-	QueryAccVer   string
-	SubjectAccVer string
-	left          int
-	right         int
-	strand        int8
 }
 
 func min(a, b int) int {
@@ -150,7 +132,7 @@ func min(a, b int) int {
 	return b
 }
 
-func max(a, b int) int {
+func max(a, b int64) int64 {
 	if a > b {
 		return a
 	}

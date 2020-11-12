@@ -164,7 +164,7 @@ func workingFile(src *os.File, suffix string) (name string, err error) {
 // are provided by search. The strings mflags and bflags are passed to makeblastdb
 // and blastn as flags without interpretation or checking. Work is done in workdir
 // and if logger is not nil, output from the blast executable is written to it.
-func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*blast.Output, error) {
+func runBlastXML(search blast.Nucleic, g blastRecordKey, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*blast.Output, error) {
 	search.OutFormat = xmlFmt
 
 	working := filepath.Join(workdir, g.QueryAccVer+"-working")
@@ -172,7 +172,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("%v < <%s %+d matches>", mkdb, g.QueryAccVer, g.strand)
+	log.Printf("%v < <%s %+d matches>", mkdb, g.QueryAccVer, g.Strand)
 	mkdb.Stdin = query
 	mkdb.Stdout = logger
 	mkdb.Stderr = logger
@@ -233,7 +233,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 						hStrand = -1
 					}
 					strand := int8(qStrand * hStrand)
-					if strand != g.strand {
+					if strand != g.Strand {
 						continue
 					}
 					hit.Hsps[k] = hsp
@@ -254,7 +254,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordGroup, query io.Reader, libs
 
 // reportBlast converts BLAST results into blast.Records based on the
 // coordinates of a genome region g.
-func reportBlast(results []*blast.Output, g blastRecordGroup, verbose bool) []blast.Record {
+func reportBlast(results []*blast.Output, g blastRecordKey, verbose bool) []blast.Record {
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {
@@ -316,7 +316,7 @@ func reportBlast(results []*blast.Output, g blastRecordGroup, verbose bool) []bl
 						SubjectStart:  hsp.HitFrom,
 						SubjectEnd:    hsp.HitTo,
 
-						Strand: g.strand,
+						Strand: g.Strand,
 
 						PctIdentity:     100 * float64(*hsp.HspIdentity) / float64(*hsp.AlignLen),
 						AlignmentLength: *hsp.AlignLen,

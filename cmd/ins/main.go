@@ -179,7 +179,7 @@ Options:
 	var buf bytes.Buffer
 	var n int
 	for i, g := range regions {
-		seq, err := qfa.SeqRange(g.SubjectAccVer, g.left, g.right)
+		seq, err := qfa.SeqRange(g.SubjectAccVer, int(g.SubjectLeft), int(g.SubjectRight))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -187,8 +187,8 @@ Options:
 		if err != nil {
 			log.Fatal(err)
 		}
-		s := linear.NewSeq(fmt.Sprintf("%s_%d_%d", g.SubjectAccVer, g.left, g.right), alphabet.BytesToLetters(b), alphabet.DNAredundant)
-		s.Desc = fmt.Sprintf("%d %d %s %+d", g.left, g.right, g.QueryAccVer, g.strand)
+		s := linear.NewSeq(fmt.Sprintf("%s_%d_%d", g.SubjectAccVer, g.SubjectLeft, g.SubjectRight), alphabet.BytesToLetters(b), alphabet.DNAredundant)
+		s.Desc = fmt.Sprintf("%d %d %s %+d", g.SubjectLeft, g.SubjectRight, g.QueryAccVer, g.Strand)
 		fmt.Fprintf(&buf, "%60a\n", s)
 
 		if i == len(regions)-1 || g.QueryAccVer != regions[i+1].QueryAccVer {
