@@ -321,15 +321,15 @@ Options:
 		}
 	}
 
-	masked, err := workingFile(query, "-masked.fasta")
+	target, err := workingFile(query, "-masked.fasta")
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = mask(masked, masking, 'N')
+	err = mask(target, masking, 'N')
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("masked sequence in %s", masked)
+	log.Printf("masked sequence in %s", target)
 }
 
 // cullContained blanks all hits that are completely contained by a higher scoring hit.
