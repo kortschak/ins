@@ -7,7 +7,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"sort"
 
 	"github.com/biogo/biogo/alphabet"
 	"github.com/biogo/biogo/io/seqio"
@@ -71,8 +70,6 @@ func remapCoords(hits []blast.Record, frags map[string]fragment) {
 		r.SubjectEnd += iv.start
 		hits[i] = r
 	}
-
-	sort.Sort(bySubjectLeft(hits))
 }
 
 type fragment struct {

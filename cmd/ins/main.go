@@ -17,7 +17,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
 	"sort"
 
@@ -155,13 +154,12 @@ Options:
 	} else {
 		libraries = filenames(libs)
 	}
-	hits, err := runBlastTabular(search, frags, libraries, *mflags, *bflags, logger)
+	hits, err := runBlastTabular(search, frags, libraries, mx, *mflags, *bflags, logger)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	remapCoords(hits, mx)
-	mx = nil
+	sort.Sort(bySubjectLeft(hits))
 
 	var remappedHits []blast.Record
 	qfa := fai.NewFile(query, qidx)
@@ -261,7 +259,11 @@ Options:
 		}
 	}
 
-	masked, err := mask(query, filepath.Base(query.Name())+"-masked.fasta", remappedHits, 'N')
+	masked, err := workingFile(query, "-masked.fasta")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = mask(masked, remappedHits, 'N')
 	if err != nil {
 		log.Fatal(err)
 	}
