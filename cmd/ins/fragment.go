@@ -17,6 +17,7 @@ import (
 	"github.com/biogo/biogo/seq/linear"
 
 	"github.com/kortschak/ins/blast"
+	"github.com/kortschak/ins/internal/store"
 )
 
 // split splits the fasta sequence read from src into fragments that are no longer
@@ -83,7 +84,7 @@ type fragment struct {
 // merge takes a sorted set of hits and groups them into individual regions based
 // on proximity. If adjacent hits are within near, they are grouped.
 func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
-	opts := &kv.Options{Compare: groupByQueryOrderSubjectLeft}
+	opts := &kv.Options{Compare: store.GroupByQueryOrderSubjectLeft}
 	regions, err = kv.Create(filepath.Join(dir, "regions.db"), opts)
 	if err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		}
 		return nil, err
 	}
-	last := unmarshalBlastRecordKey(k)
+	last := store.UnmarshalBlastRecordKey(k)
 	last.QueryStart, last.QueryEnd = 0, 0
 	n := 1
 	for {
@@ -119,7 +120,7 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 			return nil, err
 		}
 
-		r := unmarshalBlastRecordKey(k)
+		r := store.UnmarshalBlastRecordKey(k)
 		if r.SubjectLeft-last.SubjectRight <= int64(near) && r.Strand == last.Strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
 			if r.SubjectRight > last.SubjectRight {
 				last.SubjectRight = r.SubjectRight
@@ -128,13 +129,13 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 			continue
 		}
 
-		err = regions.Set(marshalBlastRecordKey(blast.Record{
+		err = regions.Set(store.MarshalBlastRecordKey(blast.Record{
 			SubjectAccVer: last.SubjectAccVer,
 			SubjectStart:  int(last.SubjectLeft),
 			SubjectEnd:    int(last.SubjectRight),
 			QueryAccVer:   last.QueryAccVer,
 			Strand:        last.Strand,
-		}), marshalInt(n))
+		}), store.MarshalInt(n))
 		if err != nil {
 			return nil, err
 		}
@@ -145,14 +146,14 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
-	if err == io.EOF || last != unmarshalBlastRecordKey(final) {
-		err = regions.Set(marshalBlastRecordKey(blast.Record{
+	if err == io.EOF || last != store.UnmarshalBlastRecordKey(final) {
+		err = regions.Set(store.MarshalBlastRecordKey(blast.Record{
 			SubjectAccVer: last.SubjectAccVer,
 			SubjectStart:  int(last.SubjectLeft),
 			SubjectEnd:    int(last.SubjectRight),
 			QueryAccVer:   last.QueryAccVer,
 			Strand:        last.Strand,
-		}), marshalInt(n))
+		}), store.MarshalInt(n))
 		if err != nil {
 			return nil, err
 		}
@@ -171,10 +172,4 @@ func min(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func marshalInt(n int) []byte {
-	var buf [8]byte
-	order.PutUint64(buf[:], uint64(n))
-	return buf[:]
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/biogo/biogo/seq/linear"
 
 	"github.com/kortschak/ins/blast"
+	"github.com/kortschak/ins/internal/store"
 )
 
 const (
@@ -42,7 +43,7 @@ const (
 func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx map[string]fragment, mflags, bflags string, logger io.Writer) (*kv.DB, error) {
 	search.OutFormat = tabFmt
 
-	opts := &kv.Options{Compare: groupByQueryOrderSubjectLeft}
+	opts := &kv.Options{Compare: store.GroupByQueryOrderSubjectLeft}
 	hits, err := kv.Create(filepath.Join(filepath.Dir(query.Name()), "forward.db"), opts)
 	if err != nil {
 		return nil, err
@@ -112,7 +113,7 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx ma
 				return nil, err
 			}
 			for _, h := range lastHits {
-				key := marshalBlastRecordKey(h)
+				key := store.MarshalBlastRecordKey(h)
 				// Keep a record of the actual hit purely for
 				// correctness auditing; the key has enough
 				// information for what we need.
@@ -164,7 +165,7 @@ func workingFile(src *os.File, suffix string) (name string, err error) {
 // are provided by search. The strings mflags and bflags are passed to makeblastdb
 // and blastn as flags without interpretation or checking. Work is done in workdir
 // and if logger is not nil, output from the blast executable is written to it.
-func runBlastXML(search blast.Nucleic, g blastRecordKey, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*blast.Output, error) {
+func runBlastXML(search blast.Nucleic, g store.BlastRecordKey, query io.Reader, libs []library, workdir, mflags, bflags string, logger io.Writer) ([]*blast.Output, error) {
 	search.OutFormat = xmlFmt
 
 	working := filepath.Join(workdir, g.QueryAccVer+"-working")
@@ -254,7 +255,7 @@ func runBlastXML(search blast.Nucleic, g blastRecordKey, query io.Reader, libs [
 
 // reportBlast converts BLAST results into blast.Records based on the
 // coordinates of a genome region g.
-func reportBlast(results []*blast.Output, g blastRecordKey, verbose bool) []blast.Record {
+func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) []blast.Record {
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {

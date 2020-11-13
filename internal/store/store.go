@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package store
 
 import (
 	"bytes"
@@ -12,15 +12,15 @@ import (
 	"github.com/kortschak/ins/blast"
 )
 
-// groupByQueryOrderSubjectLeft is a kv compare function, ordering by strand, query name,
+// GroupByQueryOrderSubjectLeft is a kv compare function, ordering by strand, query name,
 // subject name, subject position and BLAST bitscore.
-func groupByQueryOrderSubjectLeft(x, y []byte) int {
+func GroupByQueryOrderSubjectLeft(x, y []byte) int {
 	if bytes.Equal(x, y) {
 		return 0
 	}
 
-	rx := unmarshalBlastRecordKey(x)
-	ry := unmarshalBlastRecordKey(y)
+	rx := UnmarshalBlastRecordKey(x)
+	ry := UnmarshalBlastRecordKey(y)
 
 	// Separate strands, (+) first.
 	switch {
@@ -81,15 +81,15 @@ func groupByQueryOrderSubjectLeft(x, y []byte) int {
 	panic("unreachable")
 }
 
-// bySubjectPosition is a kv compare function, ordering by strand, subject name,
+// BySubjectPosition is a kv compare function, ordering by strand, subject name,
 // subject position and BLAST bitscore.
-func bySubjectPosition(x, y []byte) int {
+func BySubjectPosition(x, y []byte) int {
 	if bytes.Equal(x, y) {
 		return 0
 	}
 
-	rx := unmarshalBlastRecordKey(x)
-	ry := unmarshalBlastRecordKey(y)
+	rx := UnmarshalBlastRecordKey(x)
+	ry := UnmarshalBlastRecordKey(y)
 
 	// Separate strands, (+) first.
 	switch {
@@ -149,7 +149,14 @@ func bySubjectPosition(x, y []byte) int {
 	panic("unreachable")
 }
 
-type blastRecordKey struct {
+// MarshalInt returns a slice encoding n as an int64.
+func MarshalInt(n int) []byte {
+	var buf [8]byte
+	order.PutUint64(buf[:], uint64(n))
+	return buf[:]
+}
+
+type BlastRecordKey struct {
 	SubjectAccVer string
 	SubjectLeft   int64
 	SubjectRight  int64
@@ -162,7 +169,7 @@ type blastRecordKey struct {
 
 var order = binary.BigEndian
 
-func marshalBlastRecordKey(r blast.Record) []byte {
+func MarshalBlastRecordKey(r blast.Record) []byte {
 	var (
 		buf bytes.Buffer
 		b   [8]byte
@@ -197,8 +204,8 @@ func marshalBlastRecordKey(r blast.Record) []byte {
 	return buf.Bytes()
 }
 
-func unmarshalBlastRecordKey(data []byte) blastRecordKey {
-	var k blastRecordKey
+func UnmarshalBlastRecordKey(data []byte) BlastRecordKey {
+	var k BlastRecordKey
 	n64 := binary.Size(uint64(0))
 	n := order.Uint64(data[:n64])
 	data = data[n64:]

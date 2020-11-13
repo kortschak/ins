@@ -29,6 +29,7 @@ import (
 	"github.com/biogo/hts/fai"
 
 	"github.com/kortschak/ins/blast"
+	"github.com/kortschak/ins/internal/store"
 )
 
 var (
@@ -170,14 +171,14 @@ Options:
 		log.Fatal(err)
 	}
 
-	opts := &kv.Options{Compare: bySubjectPosition}
+	opts := &kv.Options{Compare: store.BySubjectPosition}
 	remappedHits, err := kv.Create(filepath.Join(tmpDir, "reverse.db"), opts)
 	if err != nil {
 		log.Fatal(err)
 	}
 	qfa := fai.NewFile(query, qidx)
 	var (
-		g   blastRecordKey
+		g   store.BlastRecordKey
 		n   int
 		buf bytes.Buffer
 	)
@@ -196,11 +197,11 @@ Options:
 			}
 			final = true
 		} else {
-			g = unmarshalBlastRecordKey(k)
+			g = store.UnmarshalBlastRecordKey(k)
 		}
 	}
 	for !final {
-		var next blastRecordKey
+		var next store.BlastRecordKey
 		k, _, err := it.Next()
 		if err != nil {
 			if err != io.EOF {
@@ -208,7 +209,7 @@ Options:
 			}
 			final = true
 		} else {
-			next = unmarshalBlastRecordKey(k)
+			next = store.UnmarshalBlastRecordKey(k)
 		}
 
 		seq, err := qfa.SeqRange(g.SubjectAccVer, int(g.SubjectLeft), int(g.SubjectRight))
@@ -250,7 +251,7 @@ Options:
 				log.Fatal(err)
 			}
 			for _, h := range reported {
-				key := marshalBlastRecordKey(h)
+				key := store.MarshalBlastRecordKey(h)
 				value, err := json.Marshal(h)
 				if err != nil {
 					log.Fatal(err)
@@ -382,7 +383,7 @@ func cullContained(hits *kv.DB) error {
 			return err
 		}
 
-		outer := unmarshalBlastRecordKey(k)
+		outer := store.UnmarshalBlastRecordKey(k)
 		candidates, ok, err := hits.Seek(k)
 		if !ok {
 			panic(fmt.Sprintf("expected match for existing key: %+v", outer))
@@ -410,7 +411,7 @@ func cullContained(hits *kv.DB) error {
 				return err
 			}
 
-			inner := unmarshalBlastRecordKey(j)
+			inner := store.UnmarshalBlastRecordKey(j)
 			if inner.Strand != outer.Strand || inner.SubjectAccVer != outer.SubjectAccVer {
 				break
 			}
