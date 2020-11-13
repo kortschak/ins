@@ -9,6 +9,9 @@
 //  - regions.db — aggregated hits obtained by merging closely located
 //                 blast hits stored in forward.db
 //  - reverse.db — the result of reciprocal blast searches
+// The db files will be found in the working directory notes in the log output
+// of ins and will remain after ins completes an analysis if it is given the
+// -work flag.
 // Each of the databases must be named as described here for audit-ins-db to
 // understand their contents. Output from audit-ins-db is a JSON stream on stdout.
 //
