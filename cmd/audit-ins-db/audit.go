@@ -59,8 +59,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kortschak/ins/internal/store"
 	"modernc.org/kv"
+
+	"github.com/kortschak/ins/internal/store"
 )
 
 var order = binary.BigEndian
