@@ -364,6 +364,15 @@ Options:
 		log.Fatal(err)
 	}
 	log.Printf("masked sequence in %s", target)
+
+	err = regions.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = remappedHits.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // cullContained blanks all hits that are completely contained by a higher scoring hit.
