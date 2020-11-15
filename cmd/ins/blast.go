@@ -107,12 +107,16 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx ma
 				return nil, err
 			}
 
+			log.Print("remapping coordinates")
 			remapCoords(lastHits, mx)
-			err = hits.BeginTransaction()
-			if err != nil {
-				return nil, err
-			}
-			for _, h := range lastHits {
+			const batch = 100
+			for i, h := range lastHits {
+				if i%batch == 0 {
+					err = hits.BeginTransaction()
+					if err != nil {
+						return nil, err
+					}
+				}
 				key := store.MarshalBlastRecordKey(h)
 				// Keep a record of the actual hit purely for
 				// correctness auditing; the key has enough
@@ -125,10 +129,12 @@ func runBlastTabular(search blast.Nucleic, query *os.File, libs []library, mx ma
 				if err != nil {
 					return nil, err
 				}
-			}
-			err = hits.Commit()
-			if err != nil {
-				return nil, err
+				if i%batch == batch-1 || i == len(lastHits)-1 {
+					err = hits.Commit()
+					if err != nil {
+						return nil, err
+					}
+				}
 			}
 
 			err = lib.reset()
