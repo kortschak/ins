@@ -368,9 +368,6 @@ func mask(path string, hits []blast.Record, masked alphabet.Letter) error {
 
 	hitsOf := make(map[string][]blast.Record)
 	for _, h := range hits {
-		if !h.IsValid() {
-			continue
-		}
 		hitsOf[h.SubjectAccVer] = append(hitsOf[h.SubjectAccVer], h)
 	}
 

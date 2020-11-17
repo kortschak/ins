@@ -148,8 +148,6 @@ type Record struct {
 	UID int64 `json:",omitempty"`
 }
 
-func (r Record) IsValid() bool { return r != Record{} }
-
 func ParseTabular(r io.Reader, iteration int) ([]Record, error) {
 	// column indices for default blast output tabular format 6 and 7.
 	const (
