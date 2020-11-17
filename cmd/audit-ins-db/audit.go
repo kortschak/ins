@@ -30,7 +30,13 @@
 //  	QueryEnd      int64
 //  	BitScore      float64
 //  	Strand        int8
+//  	UID           int64
 //  }
+//
+// The UID field exists only in reverse.db and can be used to connect BLAST
+// HSPs that were identified as contributing to a single BLAST hit; each hit
+// will have a unique UID shared across all HSPs that contribute to it. UIDs
+// may not be compared between runs of ins.
 //
 // regions.db
 //

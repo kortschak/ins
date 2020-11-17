@@ -344,10 +344,16 @@ Options:
 				FeatScore:  &r.BitScore,
 				FeatStrand: seq.Strand(r.Strand),
 				FeatFrame:  gff.NoFrame,
-				FeatAttributes: gff.Attributes{{
-					Tag:   "Repeat",
-					Value: fmt.Sprintf("%s %s %d %d %d", r.QueryAccVer, repeat.class, r.QueryStart+1, r.QueryEnd, repeat.length-r.QueryEnd),
-				}},
+				FeatAttributes: gff.Attributes{
+					{
+						Tag:   "Repeat",
+						Value: fmt.Sprintf("%s %s %d %d %d", r.QueryAccVer, repeat.class, r.QueryStart+1, r.QueryEnd, repeat.length-r.QueryEnd),
+					},
+					{
+						Tag:   "UID",
+						Value: fmt.Sprint(r.UID),
+					},
+				},
 			})
 			if err != nil {
 				log.Fatalf("failed to write feature: %v", err)

@@ -259,6 +259,13 @@ func runBlastXML(search blast.Nucleic, g store.BlastRecordKey, query io.Reader, 
 	return results, nil
 }
 
+var hitID int64
+
+func nextID() int64 {
+	hitID++
+	return hitID
+}
+
 // reportBlast converts BLAST results into blast.Records based on the
 // coordinates of a genome region g.
 func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) []blast.Record {
@@ -305,6 +312,7 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 				// complicated since we don't know strand until we get
 				// into the HSPs.
 
+				uid := nextID()
 				for _, hsp := range hit.Hsps {
 					// Convert to 0-based indexing.
 					hsp.QueryFrom--
@@ -331,6 +339,8 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 						GapOpens:        *hsp.HspGaps,
 						EValue:          hsp.EValue,
 						BitScore:        hsp.BitScore,
+
+						UID: uid,
 					})
 				}
 			}

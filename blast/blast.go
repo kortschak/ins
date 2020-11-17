@@ -143,6 +143,9 @@ type Record struct {
 	// Iteration is the blast Iteration
 	// that gave the blast hit.
 	Iteration int `json:",omitempty"`
+
+	// UID of hit connecting HSPs in a BLAST hit.
+	UID int64 `json:",omitempty"`
 }
 
 func (r Record) IsValid() bool { return r != Record{} }
