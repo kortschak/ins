@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"path/filepath"
 
 	"modernc.org/kv"
@@ -84,6 +85,8 @@ type fragment struct {
 // merge takes a sorted set of hits and groups them into individual regions based
 // on proximity. If adjacent hits are within near, they are grouped.
 func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
+	log.Println("merging regions")
+
 	opts := &kv.Options{Compare: store.GroupByQueryOrderSubjectLeft}
 	regions, err = kv.Create(filepath.Join(dir, "regions.db"), opts)
 	if err != nil {
@@ -111,13 +114,34 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 	last := store.UnmarshalBlastRecordKey(k)
 	last.QueryStart, last.QueryEnd = 0, 0
 	n := 1
+	const batch = 100
+	i, inTx := 0, false
 	for {
 		k, _, err := it.Next()
 		if err != nil {
 			if err == io.EOF {
+				if inTx {
+					err = regions.Commit()
+					if err != nil {
+						return nil, err
+					}
+
+				}
 				break
 			}
+			_err := regions.Commit()
+			if _err != nil {
+				log.Printf("failed to commit regions during failure: %v", err)
+			}
 			return nil, err
+		}
+
+		if i%batch == 0 {
+			err = regions.BeginTransaction()
+			inTx = true
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		r := store.UnmarshalBlastRecordKey(k)
@@ -141,6 +165,15 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		}
 		last = r
 		n = 1
+
+		if i%batch == batch-1 {
+			err = regions.Commit()
+			inTx = false
+			if err != nil {
+				return nil, err
+			}
+		}
+		i++
 	}
 	final, _, err := regions.Last()
 	if err != nil && err != io.EOF {
