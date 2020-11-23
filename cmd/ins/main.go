@@ -71,6 +71,7 @@ func main() {
 	work := flag.Bool("work", false, "specify to keep temporary files")
 	bflags := flag.String("bflags", "", "specify additional or alternative blastn flags")
 	mflags := flag.String("mflags", "", "specify additional or alternative makeblastdb flags")
+	recover := flag.String("recover", "", "specify path to kv db file for continuation (debug only)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), `Usage of %[1]s:
@@ -157,119 +158,163 @@ Options:
 	} else {
 		libraries = filenames(libs)
 	}
-	hits, err := runBlastTabular(search, frags, libraries, mx, *mflags, *bflags, logger)
-	if err != nil {
-		log.Fatal(err)
+
+	var hits *kv.DB
+	switch filepath.Base(*recover) {
+	case "forward.db":
+		log.Printf("recovering blast results from %s", *recover)
+		opts := &kv.Options{Compare: store.GroupByQueryOrderSubjectLeft}
+		hits, err = kv.Open(*recover, opts)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case "regions.db", "reverse.db":
+		// Do nothing.
+	default:
+		hits, err = runBlastTabular(search, frags, libraries, mx, *mflags, *bflags, logger)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	regions, err := merge(hits, near, tmpDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = hits.Close()
-	if err != nil {
-		log.Fatal(err)
+	var regions *kv.DB
+	switch filepath.Base(*recover) {
+	case "regions.db":
+		log.Printf("recovering merged results from %s", *recover)
+		opts := &kv.Options{Compare: store.GroupByQueryOrderSubjectLeft}
+		regions, err = kv.Open(*recover, opts)
+		if err != nil {
+			log.Fatal(err)
+		}
+	case "reverse.db":
+		// Do nothing.
+	default:
+		regions, err = merge(hits, near, tmpDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+		err = hits.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	opts := &kv.Options{Compare: store.BySubjectPosition}
-	remappedHits, err := kv.Create(filepath.Join(tmpDir, "reverse.db"), opts)
-	if err != nil {
-		log.Fatal(err)
-	}
-	qfa := fai.NewFile(query, qidx)
 	var (
-		g   store.BlastRecordKey
-		n   int
-		buf bytes.Buffer
+		remappedHits *kv.DB
+		buf          bytes.Buffer
 	)
-	final := false
-	it, err := regions.SeekFirst()
-	if err != nil {
-		if err != io.EOF {
+	switch filepath.Base(*recover) {
+	case "reverse.db":
+		log.Printf("recovering reciprocal blast results from %s", *recover)
+		opts := &kv.Options{Compare: store.BySubjectPosition}
+		remappedHits, err = kv.Open(*recover, opts)
+		if err != nil {
 			log.Fatal(err)
 		}
-		final = true
-	} else {
-		k, _, err := it.Next()
+	default:
+		opts := &kv.Options{Compare: store.BySubjectPosition}
+		remappedHits, err = kv.Create(filepath.Join(tmpDir, "reverse.db"), opts)
+		if err != nil {
+			log.Fatal(err)
+		}
+		qfa := fai.NewFile(query, qidx)
+		var (
+			g store.BlastRecordKey
+			n int
+		)
+		final := false
+		it, err := regions.SeekFirst()
 		if err != nil {
 			if err != io.EOF {
 				log.Fatal(err)
 			}
 			final = true
 		} else {
-			g = store.UnmarshalBlastRecordKey(k)
-		}
-	}
-	for !final {
-		var next store.BlastRecordKey
-		k, _, err := it.Next()
-		if err != nil {
-			if err != io.EOF {
-				log.Fatal(err)
-			}
-			final = true
-		} else {
-			next = store.UnmarshalBlastRecordKey(k)
-		}
-
-		seq, err := qfa.SeqRange(g.SubjectAccVer, int(g.SubjectLeft), int(g.SubjectRight))
-		if err != nil {
-			log.Fatal(err)
-		}
-		b, err := ioutil.ReadAll(seq)
-		if err != nil {
-			log.Fatal(err)
-		}
-		s := linear.NewSeq(fmt.Sprintf("%s_%d_%d", g.SubjectAccVer, g.SubjectLeft, g.SubjectRight), alphabet.BytesToLetters(b), alphabet.DNAredundant)
-		s.Desc = fmt.Sprintf("%d %d %s %+d", g.SubjectLeft, g.SubjectRight, g.QueryAccVer, g.Strand)
-		fmt.Fprintf(&buf, "%60a\n", s)
-
-		if final || g.QueryAccVer != next.QueryAccVer {
-			var libraries []library
-			if len(libs) > 1 && *pool {
-				libraries, err = newStream(libs)
-				if err != nil {
+			k, _, err := it.Next()
+			if err != nil {
+				if err != io.EOF {
 					log.Fatal(err)
 				}
+				final = true
 			} else {
-				libraries = filenames(libs)
+				g = store.UnmarshalBlastRecordKey(k)
 			}
-
-			search := realign
-			if *mode == "user" {
-				search = blastnModes[*mode]
-			}
-			hits, err := runBlastXML(search, g, &buf, libraries, tmpDir, *mflags, *bflags, logger)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			reported := reportBlast(hits, g, *verbose)
-			log.Printf("got %d reciprocal hits", len(reported))
-			err = remappedHits.BeginTransaction()
-			if err != nil {
-				log.Fatal(err)
-			}
-			for _, h := range reported {
-				key := store.MarshalBlastRecordKey(h)
-				value, err := json.Marshal(h)
-				if err != nil {
-					log.Fatal(err)
-				}
-				err = remappedHits.Set(key, value)
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-			err = remappedHits.Commit()
-			if err != nil {
-				log.Fatal(err)
-			}
-			n += len(reported)
-			log.Printf("holding %d total remapped hits", n)
-			buf.Reset()
 		}
-		g = next
+		for !final {
+			var next store.BlastRecordKey
+			k, _, err := it.Next()
+			if err != nil {
+				if err != io.EOF {
+					log.Fatal(err)
+				}
+				final = true
+			} else {
+				next = store.UnmarshalBlastRecordKey(k)
+			}
+
+			seq, err := qfa.SeqRange(g.SubjectAccVer, int(g.SubjectLeft), int(g.SubjectRight))
+			if err != nil {
+				log.Fatal(err)
+			}
+			b, err := ioutil.ReadAll(seq)
+			if err != nil {
+				log.Fatal(err)
+			}
+			s := linear.NewSeq(fmt.Sprintf("%s_%d_%d", g.SubjectAccVer, g.SubjectLeft, g.SubjectRight), alphabet.BytesToLetters(b), alphabet.DNAredundant)
+			s.Desc = fmt.Sprintf("%d %d %s %+d", g.SubjectLeft, g.SubjectRight, g.QueryAccVer, g.Strand)
+			fmt.Fprintf(&buf, "%60a\n", s)
+
+			if final || g.QueryAccVer != next.QueryAccVer {
+				var libraries []library
+				if len(libs) > 1 && *pool {
+					libraries, err = newStream(libs)
+					if err != nil {
+						log.Fatal(err)
+					}
+				} else {
+					libraries = filenames(libs)
+				}
+
+				search := realign
+				if *mode == "user" {
+					search = blastnModes[*mode]
+				}
+				hits, err := runBlastXML(search, g, &buf, libraries, tmpDir, *mflags, *bflags, logger)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				reported := reportBlast(hits, g, *verbose)
+				log.Printf("got %d reciprocal hits", len(reported))
+				err = remappedHits.BeginTransaction()
+				if err != nil {
+					log.Fatal(err)
+				}
+				for _, h := range reported {
+					key := store.MarshalBlastRecordKey(h)
+					value, err := json.Marshal(h)
+					if err != nil {
+						log.Fatal(err)
+					}
+					err = remappedHits.Set(key, value)
+					if err != nil {
+						log.Fatal(err)
+					}
+				}
+				err = remappedHits.Commit()
+				if err != nil {
+					log.Fatal(err)
+				}
+				n += len(reported)
+				log.Printf("holding %d total remapped hits", n)
+				buf.Reset()
+			}
+			g = next
+		}
+		err = regions.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if *cull {
@@ -371,10 +416,6 @@ Options:
 	}
 	log.Printf("masked sequence in %s", target)
 
-	err = regions.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
 	err = remappedHits.Close()
 	if err != nil {
 		log.Fatal(err)
