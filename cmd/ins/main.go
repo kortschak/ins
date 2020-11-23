@@ -175,6 +175,7 @@ Options:
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Println("forward.db valid for recover")
 	}
 
 	var regions *kv.DB
@@ -193,6 +194,7 @@ Options:
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Println("regions.db valid for recover")
 		err = hits.Close()
 		if err != nil {
 			log.Fatal(err)
@@ -324,6 +326,7 @@ Options:
 			log.Fatal(err)
 		}
 	}
+	log.Println("reverse.db valid for recover")
 
 	var masking []blast.Record
 	buf.Reset()
