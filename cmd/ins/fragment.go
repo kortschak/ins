@@ -117,7 +117,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		if err != nil {
 			if err == io.EOF {
 				if inTx {
-					log.Printf("commit tx for %d (final)", i)
 					err = regions.Commit()
 					if err != nil {
 						return nil, err
@@ -142,7 +141,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		}
 
 		if i%batch == 0 {
-			log.Printf("begin tx for %d", i)
 			err = regions.BeginTransaction()
 			inTx = true
 			if err != nil {
@@ -164,7 +162,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		n = 1
 
 		if i%batch == batch-1 {
-			log.Printf("commit tx for %d", i)
 			err = regions.Commit()
 			inTx = false
 			if err != nil {
@@ -178,7 +175,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		return nil, err
 	}
 	if err == io.EOF || last != store.UnmarshalBlastRecordKey(final) {
-		log.Printf("begin tx for last")
 		err = regions.BeginTransaction()
 		if err != nil {
 			return nil, err
@@ -193,7 +189,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("commit tx for last")
 		err = regions.Commit()
 		if err != nil {
 			return nil, err
