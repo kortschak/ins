@@ -122,7 +122,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 					if err != nil {
 						return nil, err
 					}
-
 				}
 				break
 			}
@@ -133,15 +132,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 			return nil, err
 		}
 
-		if i%batch == 0 {
-			log.Printf("begin tx for %d", i)
-			err = regions.BeginTransaction()
-			inTx = true
-			if err != nil {
-				return nil, err
-			}
-		}
-
 		r := store.UnmarshalBlastRecordKey(k)
 		if r.SubjectLeft-last.SubjectRight <= int64(near) && r.Strand == last.Strand && r.SubjectAccVer == last.SubjectAccVer && r.QueryAccVer == last.QueryAccVer {
 			if r.SubjectRight > last.SubjectRight {
@@ -149,6 +139,15 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 			}
 			n++
 			continue
+		}
+
+		if i%batch == 0 {
+			log.Printf("begin tx for %d", i)
+			err = regions.BeginTransaction()
+			inTx = true
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		err = regions.Set(store.MarshalBlastRecordKey(blast.Record{
