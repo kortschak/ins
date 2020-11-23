@@ -92,10 +92,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 	if err != nil {
 		return nil, err
 	}
-	err = hits.BeginTransaction()
-	if err != nil {
-		return nil, err
-	}
 
 	it, err := hits.SeekFirst()
 	if err != nil {
@@ -190,11 +186,6 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	err = hits.Commit()
-	if err != nil {
-		return nil, err
 	}
 
 	return regions, nil
