@@ -227,28 +227,6 @@ func runBlastXML(search blast.Nucleic, g store.BlastRecordKey, query io.Reader, 
 			if len(it.Hits) == 0 || it.QueryId == nil || *it.QueryId != g.QueryAccVer {
 				continue
 			}
-
-			for j, hit := range it.Hits {
-				k := 0
-				for _, hsp := range hit.Hsps {
-					qStrand := 1
-					if hsp.QueryTo < hsp.QueryFrom {
-						qStrand = -1
-					}
-					hStrand := 1
-					if hsp.HitTo < hsp.HitFrom {
-						hStrand = -1
-					}
-					strand := int8(qStrand * hStrand)
-					if strand != g.Strand {
-						continue
-					}
-					hit.Hsps[k] = hsp
-					k++
-				}
-				it.Hits[j].Hsps = hit.Hsps[:k]
-			}
-
 			o.Iterations[i] = it
 			i++
 		}
@@ -272,11 +250,6 @@ func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, 
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {
-			if it.QueryId == nil {
-				log.Printf("missing query id skipping: %s", queryAccVer)
-				continue
-			}
-
 			for _, hit := range it.Hits {
 				def := hit.Def
 				i := strings.Index(def, " ")
@@ -288,24 +261,6 @@ func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, 
 				right, err := strconv.Atoi(desc[1])
 				if err != nil {
 					panic("invalid right range:" + hit.Def)
-				}
-
-				if *it.QueryId != queryAccVer {
-					log.Printf("dropping remainder of iteration hits: unexpected name: %q want: %q range:%d-%d", *it.QueryId, queryAccVer, left, right)
-					for i, hsp := range hit.Hsps {
-						log.Printf("\t%q:%d-%d %q:%d-%d",
-							hit.Def, hsp.HitFrom, hsp.HitTo,
-							*it.QueryDef, hsp.QueryFrom, hsp.QueryTo,
-						)
-						if !verbose {
-							n := len(hit.Hsps[i:])
-							if n > 2 {
-								log.Printf("\tnot logging %d additional dropped hits", n-1)
-								break
-							}
-						}
-					}
-					break
 				}
 
 				id := strings.TrimSuffix(def[:i], fmt.Sprintf("_%d_%d", left, right))
