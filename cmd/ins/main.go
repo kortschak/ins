@@ -401,6 +401,10 @@ Options:
 						Tag:   "UID",
 						Value: fmt.Sprint(r.UID),
 					},
+					{
+						Tag:   "SumScore",
+						Value: fmt.Sprintf("%.4f", r.SumScore),
+					},
 				},
 			})
 			if err != nil {
@@ -484,7 +488,7 @@ func cullContained(hits *kv.DB) error {
 			if inner.SubjectRight > outer.SubjectRight {
 				continue
 			}
-			if inner.BitScore < outer.BitScore {
+			if inner.BitScore < outer.BitScore || (inner.BitScore == outer.BitScore && inner.SumScore < outer.SumScore) {
 				err = hits.Delete(j)
 				if err != nil {
 					return err

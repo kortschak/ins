@@ -133,13 +133,13 @@ type Output struct {
 
 // An Iteration holds the iteration data for a Blast result.
 type Iteration struct {
-	N        int     `xml:"Iteration_iter-num"`  // Iteration_iter-num
-	QueryId  *string `xml:"Iteration_query-ID"`  // Iteration_query-ID?
-	QueryDef *string `xml:"Iteration_query-def"` // Iteration_query-def?
-	Hits     []Hit   `xml:"Iteration_hits>Hit"`  // Iteration_hits?
+	N          int         `xml:"Iteration_iter-num"`        // Iteration_iter-num
+	QueryId    *string     `xml:"Iteration_query-ID"`        // Iteration_query-ID?
+	QueryDef   *string     `xml:"Iteration_query-def"`       // Iteration_query-def?
+	Hits       []Hit       `xml:"Iteration_hits>Hit"`        // Iteration_hits?
+	QueryLen   *int        `xml:"Iteration_query-len"`       // Iteration_query-len?
+	Statistics *Statistics `xml:"Iteration_stat>Statistics"` // Iteration_stat?
 
-	// QueryLen   *int        `xml:"Iteration_query-len"`       // Iteration_query-len?
-	// Statistics *Statistics `xml:"Iteration_stat>Statistics"` // Iteration_stat?
 	// Message    *string     `xml:"Iteration_message"`         // Iteration_message?
 }
 
@@ -235,13 +235,13 @@ type Parameters struct {
 
 // A Statistics holds the search and database statistics for a Blast result.
 type Statistics struct {
-	// DbNum    int     `xml:"Statistics_db-num"`    // Statistics_db-num
-	// DbLen    int64   `xml:"Statistics_db-len"`    // Statistics_db-len
-	// HspLen   int     `xml:"Statistics_hsp-len"`   // Statistics_hsp-len
-	// EffSpace float64 `xml:"Statistics_eff-space"` // Statistics_eff-space
-	// Kappa    float64 `xml:"Statistics_kappa"`     // Statistics_kappa
-	// Lambda   float64 `xml:"Statistics_lambda"`    // Statistics_lambda
-	// Entropy  float64 `xml:"Statistics_entropy"`   // Statistics_entropy
+	DbNum    int     `xml:"Statistics_db-num"`    // Statistics_db-num
+	DbLen    int64   `xml:"Statistics_db-len"`    // Statistics_db-len
+	HspLen   int     `xml:"Statistics_hsp-len"`   // Statistics_hsp-len
+	EffSpace float64 `xml:"Statistics_eff-space"` // Statistics_eff-space
+	Kappa    float64 `xml:"Statistics_kappa"`     // Statistics_kappa
+	Lambda   float64 `xml:"Statistics_lambda"`    // Statistics_lambda
+	Entropy  float64 `xml:"Statistics_entropy"`   // Statistics_entropy
 }
 
 /*

@@ -146,6 +146,10 @@ type Record struct {
 
 	// UID of hit connecting HSPs in a BLAST hit.
 	UID int64 `json:",omitempty"`
+
+	// The sum score for a collection of HSPs
+	// sharing a UID.
+	SumScore float64 `json:",omitempty"`
 }
 
 func ParseTabular(r io.Reader, iteration int) ([]Record, error) {

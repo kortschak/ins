@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -269,6 +270,7 @@ func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, 
 
 				id := strings.TrimSuffix(def[:i], fmt.Sprintf("_%d_%d", left, right))
 				uid := nextID()
+				score := sumScore(hit, it, queryStrand)
 				for _, hsp := range hit.Hsps {
 					strand := int8(1)
 					if hsp.HitFrom > hsp.HitTo {
@@ -306,7 +308,8 @@ func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, 
 						EValue:          hsp.EValue,
 						BitScore:        hsp.BitScore,
 
-						UID: uid,
+						UID:      uid,
+						SumScore: score,
 					})
 				}
 			}
@@ -314,6 +317,51 @@ func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, 
 	}
 
 	return remapped
+}
+
+func sumScore(h blast.Hit, it blast.Iteration, queryStrand int8) float64 {
+	var raw float64
+	for _, hsp := range h.Hsps {
+		strand := int8(1)
+		if hsp.HitFrom > hsp.HitTo {
+			strand = -1
+		}
+		if strand != queryStrand {
+			continue
+		}
+		raw += hsp.BitScore
+	}
+
+	const gap = 50 // BLAST book 7.1.8.
+	r := float64(len(h.Hsps))
+	stat := it.Statistics
+	m := effQueryLen(it)
+	n := effSubjLen(stat)
+	return stat.Lambda*raw - math.Log(stat.Kappa*m*n) - (r-1)*(math.Log(stat.Kappa)+2*math.Log(gap)) - lnFact(r)
+}
+
+func effSubjLen(stat *blast.Statistics) float64 {
+	n := float64(stat.DbLen - int64(stat.DbNum*stat.HspLen))
+	if n < 1/stat.Kappa {
+		return 1 / stat.Kappa
+	}
+	return n
+}
+
+func effQueryLen(it blast.Iteration) float64 {
+	m := float64(*it.QueryLen - it.Statistics.HspLen)
+	if m < 1/it.Statistics.Kappa {
+		return 1 / it.Statistics.Kappa
+	}
+	return m
+}
+
+func lnFact(f float64) float64 {
+	var p float64
+	for i := p + 1; i <= f; i++ {
+		p += math.Log(i)
+	}
+	return p
 }
 
 // mask writes a masked copy of the genome in the src file based on the given

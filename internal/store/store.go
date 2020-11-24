@@ -125,6 +125,12 @@ func BySubjectPosition(x, y []byte) int {
 	case rx.BitScore < ry.BitScore:
 		return 1
 	}
+	switch {
+	case rx.SumScore > ry.SumScore:
+		return -1
+	case rx.SumScore < ry.SumScore:
+		return 1
+	}
 
 	// Ensure key uniqueness.
 	switch {
@@ -164,6 +170,7 @@ type BlastRecordKey struct {
 	QueryStart    int64
 	QueryEnd      int64
 	BitScore      float64
+	SumScore      float64
 	Strand        int8
 }
 
@@ -200,6 +207,8 @@ func MarshalBlastRecordKey(r blast.Record) []byte {
 	buf.Write(b[:])
 	order.PutUint64(b[:], math.Float64bits(r.BitScore))
 	buf.Write(b[:])
+	order.PutUint64(b[:], math.Float64bits(r.SumScore))
+	buf.Write(b[:])
 	buf.WriteByte(byte(r.Strand))
 	return buf.Bytes()
 }
@@ -224,6 +233,8 @@ func UnmarshalBlastRecordKey(data []byte) BlastRecordKey {
 	k.QueryEnd = int64(order.Uint64(data[:n64]))
 	data = data[n64:]
 	k.BitScore = math.Float64frombits(order.Uint64(data[:n64]))
+	data = data[n64:]
+	k.SumScore = math.Float64frombits(order.Uint64(data[:n64]))
 	data = data[n64:]
 	k.Strand = int8(data[0])
 	return k
