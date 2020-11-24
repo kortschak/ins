@@ -266,7 +266,7 @@ Options:
 			s.Desc = fmt.Sprintf("%d %d %s %+d", g.SubjectLeft, g.SubjectRight, g.QueryAccVer, g.Strand)
 			fmt.Fprintf(&buf, "%60a\n", s)
 
-			if final || g.QueryAccVer != next.QueryAccVer {
+			if final || g.QueryAccVer != next.QueryAccVer || g.Strand != next.Strand {
 				var libraries []library
 				if len(libs) > 1 && *pool {
 					libraries, err = newStream(libs)
