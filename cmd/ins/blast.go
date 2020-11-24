@@ -268,13 +268,13 @@ func nextID() int64 {
 
 // reportBlast converts BLAST results into blast.Records based on the
 // coordinates of a genome region g.
-func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) []blast.Record {
+func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, verbose bool) []blast.Record {
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {
 			if it.QueryId == nil {
-				log.Printf("missing query id skipping: %s x %s", g.SubjectAccVer, g.QueryAccVer)
-				break
+				log.Printf("missing query id skipping: %s", queryAccVer)
+				continue
 			}
 
 			for _, hit := range it.Hits {
@@ -290,8 +290,8 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 					panic("invalid right range:" + hit.Def)
 				}
 
-				if *it.QueryId != g.QueryAccVer {
-					log.Printf("dropping remainder of iteration hits: unexpected name: %q want: %q range:%d-%d", *it.QueryId, g.QueryAccVer, left, right)
+				if *it.QueryId != queryAccVer {
+					log.Printf("dropping remainder of iteration hits: unexpected name: %q want: %q range:%d-%d", *it.QueryId, queryAccVer, left, right)
 					for i, hsp := range hit.Hsps {
 						log.Printf("\t%q:%d-%d %q:%d-%d",
 							hit.Def, hsp.HitFrom, hsp.HitTo,
@@ -308,13 +308,19 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 					break
 				}
 
-				// TODO: Handle strand mismatches in a similar way to
-				// how we handle ID mismatches. This is slightly more
-				// complicated since we don't know strand until we get
-				// into the HSPs.
-
+				id := strings.TrimSuffix(def[:i], fmt.Sprintf("_%d_%d", left, right))
 				uid := nextID()
 				for _, hsp := range hit.Hsps {
+					strand := int8(1)
+					if hsp.HitFrom > hsp.HitTo {
+						strand = -1
+					}
+					// TODO: Integrate this into highest scoring reciprocal logic.
+					if strand != queryStrand {
+						log.Printf("skipping hsp on opposite strand: %s x %s", queryAccVer, id)
+						continue
+					}
+
 					// Convert to 0-based indexing.
 					hsp.QueryFrom--
 					hsp.HitFrom--
@@ -324,15 +330,15 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 					hsp.HitTo += left
 
 					remapped = append(remapped, blast.Record{
-						QueryAccVer: g.QueryAccVer,
+						QueryAccVer: queryAccVer,
 						QueryStart:  hsp.QueryFrom,
 						QueryEnd:    hsp.QueryTo,
 
-						SubjectAccVer: g.SubjectAccVer,
+						SubjectAccVer: id,
 						SubjectStart:  hsp.HitFrom,
 						SubjectEnd:    hsp.HitTo,
 
-						Strand: g.Strand,
+						Strand: strand,
 
 						PctIdentity:     100 * float64(*hsp.HspIdentity) / float64(*hsp.AlignLen),
 						AlignmentLength: *hsp.AlignLen,

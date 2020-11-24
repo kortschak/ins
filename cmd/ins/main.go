@@ -286,7 +286,7 @@ Options:
 					log.Fatal(err)
 				}
 
-				reported := reportBlast(hits, g, *verbose)
+				reported := reportBlast(hits, g.QueryAccVer, g.Strand, *verbose)
 				log.Printf("got %d reciprocal hits", len(reported))
 				err = remappedHits.BeginTransaction()
 				if err != nil {
