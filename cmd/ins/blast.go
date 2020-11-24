@@ -280,9 +280,6 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 			for _, hit := range it.Hits {
 				def := hit.Def
 				i := strings.Index(def, " ")
-				if i >= 0 {
-					def = def[:i]
-				}
 				desc := strings.Fields(hit.Def[i+1:])
 				left, err := strconv.Atoi(desc[0])
 				if err != nil {
