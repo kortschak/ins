@@ -224,7 +224,7 @@ func runBlastXML(search blast.Nucleic, g store.BlastRecordKey, query io.Reader, 
 
 		i := 0
 		for _, it := range o.Iterations {
-			if len(it.Hits) == 0 || it.QueryId == nil || *it.QueryId != g.QueryAccVer {
+			if len(it.Hits) == 0 || it.QueryId == nil {
 				continue
 			}
 			o.Iterations[i] = it
@@ -261,6 +261,10 @@ func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, 
 				right, err := strconv.Atoi(desc[1])
 				if err != nil {
 					panic("invalid right range:" + hit.Def)
+				}
+
+				if *it.QueryId != queryAccVer {
+					break
 				}
 
 				id := strings.TrimSuffix(def[:i], fmt.Sprintf("_%d_%d", left, right))
