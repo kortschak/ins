@@ -272,11 +272,16 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 	var remapped []blast.Record
 	for _, o := range results {
 		for _, it := range o.Iterations {
+			if it.QueryId == nil {
+				log.Printf("missing query id skipping: %s x %s", g.SubjectAccVer, g.QueryAccVer)
+				break
+			}
+
 			for _, hit := range it.Hits {
-				id := hit.Def
-				i := strings.IndexAny(id, " \t")
+				def := hit.Def
+				i := strings.Index(def, " ")
 				if i >= 0 {
-					id = id[:i]
+					def = def[:i]
 				}
 				desc := strings.Fields(hit.Def[i+1:])
 				left, err := strconv.Atoi(desc[0])
@@ -288,9 +293,8 @@ func reportBlast(results []*blast.Output, g store.BlastRecordKey, verbose bool) 
 					panic("invalid right range:" + hit.Def)
 				}
 
-				id = strings.TrimSuffix(id, fmt.Sprintf("_%d_%d", left, right))
-				if id != g.SubjectAccVer {
-					log.Printf("dropping remainder of iteration hits: unexpected name: %q want: %q range:%d-%d", id, g.SubjectAccVer, left, right)
+				if *it.QueryId != g.QueryAccVer {
+					log.Printf("dropping remainder of iteration hits: unexpected name: %q want: %q range:%d-%d", *it.QueryId, g.QueryAccVer, left, right)
 					for i, hsp := range hit.Hsps {
 						log.Printf("\t%q:%d-%d %q:%d-%d",
 							hit.Def, hsp.HitFrom, hsp.HitTo,
