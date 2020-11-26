@@ -276,19 +276,22 @@ func reportBlast(results []*blast.Output, queryAccVer string, queryStrand int8, 
 					if hsp.HitFrom > hsp.HitTo {
 						strand = -1
 					}
+
+					// Remap coordinates onto original subject.
+					hsp.HitFrom += left
+					hsp.HitTo += left
+
 					// TODO: Integrate this into highest scoring reciprocal logic.
 					if strand != queryStrand {
-						log.Printf("skipping hsp on opposite strand: %s x %s", queryAccVer, id)
+						log.Printf("skipping hsp on opposite strand: %s:%d-%d x %s:%d-%d",
+							queryAccVer, hsp.QueryFrom, hsp.QueryTo,
+							id, hsp.HitFrom, hsp.HitTo)
 						continue
 					}
 
 					// Convert to 0-based indexing.
 					hsp.QueryFrom--
 					hsp.HitFrom--
-
-					// Remap coordinates onto original subject.
-					hsp.HitFrom += left
-					hsp.HitTo += left
 
 					remapped = append(remapped, blast.Record{
 						QueryAccVer: queryAccVer,
