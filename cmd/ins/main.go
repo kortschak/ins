@@ -437,6 +437,7 @@ func cullContained(hits *kv.DB) error {
 		return err
 	}
 
+	i, last := 0, 0
 	for {
 		k, _, err := outerIt.Next()
 		if err != nil {
@@ -445,6 +446,7 @@ func cullContained(hits *kv.DB) error {
 			}
 			return err
 		}
+		i++
 
 		outer := store.UnmarshalBlastRecordKey(k)
 		candidates, ok, err := hits.Seek(k)
@@ -489,11 +491,16 @@ func cullContained(hits *kv.DB) error {
 				continue
 			}
 			if inner.BitScore < outer.BitScore || (inner.BitScore == outer.BitScore && inner.SumScore < outer.SumScore) {
+				i++
 				err = hits.Delete(j)
 				if err != nil {
 					return err
 				}
 			}
+		}
+		if i-last > 1e5 {
+			log.Printf("\tprocessed %d features", i)
+			last = i
 		}
 	}
 	return nil
