@@ -5,10 +5,12 @@
 // The audit-ins-db command allows the internal data stores generated during
 // a run of ins to be queried. There are three persisted data stores in addition
 // to the artifacts that are left by blastn.
-//  - forward.db — the result of forward blast searches
-//  - regions.db — aggregated hits obtained by merging closely located
-//                 blast hits stored in forward.db
-//  - reverse.db — the result of reciprocal blast searches
+//  - forward.db          — the result of forward blast searches
+//  - regions.db          — aggregated hits obtained by merging closely located
+//                          blast hits stored in forward.db
+//  - reverse.db          — the result of reciprocal blast searches
+//  - reverse-unculled.db — the result of reciprocal blast searches without nested
+//                          low-scoreing nested featured removed.
 // The db files will be found in the working directory notes in the log output
 // of ins and will remain after ins completes an analysis if it is given the
 // -work flag.
@@ -73,11 +75,11 @@ import (
 var order = binary.BigEndian
 
 func main() {
-	path := flag.String("db", "", "specify db file to audit (base must match '{forward,regions,reverse}.db')")
+	path := flag.String("db", "", "specify db file to audit (base must match '{forward,regions,reverse,reverse-unculled}.db')")
 	flag.Parse()
 	base := filepath.Base(*path)
 	switch base {
-	case "forward.db", "regions.db", "reverse.db":
+	case "forward.db", "regions.db", "reverse.db", "reverse-unculled.db":
 	default:
 		flag.Usage()
 		os.Exit(2)
@@ -89,9 +91,10 @@ func main() {
 	}
 
 	orderFor := map[string]func(x, y []byte) int{
-		"forward.db": store.GroupByQueryOrderSubjectLeft,
-		"regions.db": store.GroupByQueryOrderSubjectLeft,
-		"reverse.db": store.BySubjectPosition,
+		"forward.db":          store.GroupByQueryOrderSubjectLeft,
+		"regions.db":          store.GroupByQueryOrderSubjectLeft,
+		"reverse.db":          store.BySubjectPosition,
+		"reverse-unculled.db": store.BySubjectPosition,
 	}
 	opts := &kv.Options{Compare: orderFor[base]}
 	db, err := kv.Open(*path, opts)
@@ -119,7 +122,7 @@ func main() {
 		case "forward.db", "reverse.db":
 			os.Stdout.Write(v)
 			fmt.Println()
-		case "regions.db":
+		case "regions.db", "reverse-unculled.db":
 			r := store.UnmarshalBlastRecordKey(k)
 			n := int64(order.Uint64(v))
 			err = enc.Encode(region{
