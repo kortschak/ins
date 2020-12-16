@@ -321,6 +321,35 @@ Options:
 
 	if *cull {
 		log.Println("discarding low scoring nested features")
+		if *work {
+			// Close and copy reverse.db into reverse-unculled.db.
+			log.Println("keeping copy of unculled reverse.db in reverse-unculled.db")
+			err = remappedHits.Close()
+			if err != nil {
+				log.Fatal(err)
+			}
+			path := filepath.Join(tmpDir, "reverse.db")
+			src, err := os.Open(path)
+			if err != nil {
+				log.Fatal(err)
+			}
+			dst, err := os.Create(filepath.Join(tmpDir, "reverse-unculled.db"))
+			if err != nil {
+				log.Fatal(err)
+			}
+			_, err = io.Copy(dst, src)
+			if err != nil {
+				log.Fatalf("failed to copy reverse.db before culling: %v", err)
+			}
+			log.Println("reverse-unculled.db valid for recover: must be copied to reverse.db for recovery")
+
+			// Reopen reverse.db.
+			opts := &kv.Options{Compare: store.BySubjectPosition}
+			remappedHits, err = kv.Open(path, opts)
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
 		err = cullContained(remappedHits)
 		if err != nil {
 			log.Fatal(err)
