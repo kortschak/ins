@@ -9,7 +9,7 @@ The `ins` tool is a repeat identification/annotation tool.
 The `ins` program can be installed after [installing the Go programming language](https://golang.org/doc/install).
 
 ```
-$ go get github.com/kortschak/cmd/ins
+$ go get github.com/kortschak/ins/cmd/ins
 ```
 
 `ins` requires that the NCBI+ BLAST distribution is installed on your system and that `blastn` and `makeblastdb` are in your `$PATH`.
