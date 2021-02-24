@@ -192,6 +192,10 @@ Options:
 	default:
 		regions, err = merge(hits, near, tmpDir)
 		if err != nil {
+			if err == io.EOF {
+				log.Println("no repeat region found")
+				return
+			}
 			log.Fatal(err)
 		}
 		log.Println("regions.db valid for recover")

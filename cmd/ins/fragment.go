@@ -95,16 +95,10 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 
 	it, err := hits.SeekFirst()
 	if err != nil {
-		if err == io.EOF {
-			return nil, nil
-		}
 		return nil, err
 	}
 	k, _, err := it.Next()
 	if err != nil {
-		if err == io.EOF {
-			return nil, nil
-		}
 		return nil, err
 	}
 	last := store.UnmarshalBlastRecordKey(k)
@@ -174,7 +168,7 @@ func merge(hits *kv.DB, near int, dir string) (regions *kv.DB, err error) {
 	if err != nil && err != io.EOF {
 		return nil, err
 	}
-	if err == io.EOF || last != store.UnmarshalBlastRecordKey(final) {
+	if err == io.EOF || final == nil || last != store.UnmarshalBlastRecordKey(final) {
 		err = regions.BeginTransaction()
 		if err != nil {
 			return nil, err
